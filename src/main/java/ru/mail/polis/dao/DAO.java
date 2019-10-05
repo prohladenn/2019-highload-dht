@@ -24,7 +24,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
+
+import ru.mail.polis.prohladenn.NoSuchElementLite;
 
 /**
  * Storage interface.
@@ -68,20 +69,20 @@ public interface DAO extends Closeable {
     /**
      * Obtains {@link Record} corresponding to given key.
      *
-     * @throws NoSuchElementException if no such record
+     * @throws NoSuchElementLite if no such record
      */
     @NotNull
-    default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+    default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementLite {
         final Iterator<Record> iter = iterator(key);
         if (!iter.hasNext()) {
-            throw new NoSuchElementException("Not found");
+            throw new NoSuchElementLite("Not found");
         }
 
         final Record next = iter.next();
         if (next.getKey().equals(key)) {
             return next.getValue();
         } else {
-            throw new NoSuchElementException("Not found");
+            throw new NoSuchElementLite("Not found");
         }
     }
 
