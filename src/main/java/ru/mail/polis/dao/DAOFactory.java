@@ -17,12 +17,10 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.prohladenn.LSMDao;
+import ru.mail.polis.prohladenn.ThreadSafeDAO;
 
 import java.io.File;
 import java.io.IOException;
-
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Custom {@link DAO} factory.
@@ -56,6 +54,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new LSMDao(data, MAX_HEAP / 60);
+        return new ThreadSafeDAO(1024 * 1024, data);
     }
 }

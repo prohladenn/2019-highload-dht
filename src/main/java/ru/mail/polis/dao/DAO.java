@@ -19,13 +19,12 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.prohladenn.NoSuchElementLite;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
-
-import ru.mail.polis.prohladenn.NoSuchElementLite;
 
 /**
  * Storage interface.

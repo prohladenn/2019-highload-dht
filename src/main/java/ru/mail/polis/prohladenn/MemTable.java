@@ -1,48 +1,64 @@
 package ru.mail.polis.prohladenn;
 
-import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
-public final class MemTable implements Table {
-    private final SortedMap<ByteBuffer, Value> map = new TreeMap<>();
-    private long sizeInBytes;
-
-    public long sizeInBytes() {
-        return sizeInBytes;
-    }
+public class MemTable implements Table {
+    private final SortedMap<ByteBuffer, Cell> memTable = new ConcurrentSkipListMap<>();
+    private final AtomicLong currentHeap = new AtomicLong(0);
 
     @NotNull
     @Override
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
-        return Iterators.transform(
-                map.tailMap(from).entrySet().iterator(),
-                e -> new Cell(e.getKey(), e.getValue()));
+        return memTable.tailMap(from).values().iterator();
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
-        final Value previous = map.put(key, Value.of(value));
-        if (previous == null) {
-            sizeInBytes += key.remaining() + value.remaining();
-        } else if (previous.isRemoved()) {
-            sizeInBytes += value.remaining();
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value,
+                       @NotNull final AtomicInteger fileIndex) {
+        final Cell previousCell = memTable.put(key, Cell.of(fileIndex.get(), key, value, ThreadSafeDAO.ALIVE));
+        if (previousCell == null) {
+            currentHeap.addAndGet(Integer.BYTES
+                    + (long) (key.remaining() + ThreadSafeDAO.LINK_SIZE
+                    + Integer.BYTES * ThreadSafeDAO.NUMBER_FIELDS)
+                    + (long) (value.remaining() + ThreadSafeDAO.LINK_SIZE
+                    + Integer.BYTES * ThreadSafeDAO.NUMBER_FIELDS)
+                    + Integer.BYTES);
         } else {
-            sizeInBytes += value.remaining() - previous.getData().remaining();
+            currentHeap.addAndGet(value.remaining() - previousCell.getValue().remaining());
         }
     }
 
     @Override
-    public void remove(@NotNull final ByteBuffer key) {
-        final Value previous = map.put(key, Value.tombstone());
-        if (previous == null) {
-            sizeInBytes += key.remaining();
-        } else if (!previous.isRemoved()) {
-            sizeInBytes -= previous.getData().remaining();
+    public void remove(@NotNull final ByteBuffer key,
+                       @NotNull final AtomicInteger fileIndex) {
+        final Cell removedCell = memTable.put(key, Cell.of(fileIndex.get(), key, ThreadSafeDAO.TOMBSTONE, ThreadSafeDAO.DEAD));
+        if (removedCell == null) {
+            currentHeap.addAndGet(Integer.BYTES
+                    + (long) (key.remaining() + ThreadSafeDAO.LINK_SIZE
+                    + Integer.BYTES * ThreadSafeDAO.NUMBER_FIELDS)
+                    + (long) (ThreadSafeDAO.LINK_SIZE
+                    + Integer.BYTES * ThreadSafeDAO.NUMBER_FIELDS)
+                    + Integer.BYTES);
+        } else if (!removedCell.isDead()) {
+            currentHeap.addAndGet(-removedCell.getValue().remaining());
         }
+    }
+
+    @Override
+    public void clear() {
+        memTable.clear();
+        currentHeap.set(0);
+    }
+
+    @Override
+    public long sizeInBytes() {
+        return currentHeap.get();
     }
 }
