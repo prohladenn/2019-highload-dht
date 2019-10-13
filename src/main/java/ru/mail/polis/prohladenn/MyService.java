@@ -27,12 +27,12 @@ public class MyService extends HttpServer implements Service {
         if (id == null || id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
-        ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
-                    ByteBuffer value = dao.get(key);
-                    ByteBuffer duplicate = value.duplicate();
+                    final ByteBuffer value = dao.get(key);
+                    final ByteBuffer duplicate = value.duplicate();
                     byte[] body = new byte[duplicate.remaining()];
                     duplicate.get(body);
                     return new Response(Response.OK, body);
@@ -67,9 +67,9 @@ public class MyService extends HttpServer implements Service {
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
-        AcceptorConfig acceptor = new AcceptorConfig();
+        final AcceptorConfig acceptor = new AcceptorConfig();
+        final HttpServerConfig config = new HttpServerConfig();
         acceptor.port = port;
-        HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
         config.selectors = 4;
         return config;
