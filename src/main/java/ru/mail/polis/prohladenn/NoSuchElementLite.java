@@ -3,12 +3,12 @@ package ru.mail.polis.prohladenn;
 import java.util.NoSuchElementException;
 
 public class NoSuchElementLite extends NoSuchElementException {
-    public NoSuchElementLite(String s) {
+    public NoSuchElementLite(final String s) {
         super(s);
     }
 
     @Override
-    public synchronized Throwable fillInStackTrace() {
+    public Throwable fillInStackTrace() {
         return this;
     }
 }

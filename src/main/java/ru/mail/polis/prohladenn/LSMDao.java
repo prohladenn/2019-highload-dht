@@ -32,7 +32,7 @@ public final class LSMDao implements DAO {
 
     private final File base;
     private Collection<FileTable> fileTables;
-    private MemTablePool memTable;
+    private final MemTablePool memTable;
     private final Thread flushedThread;
     private long generation;
 
