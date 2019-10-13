@@ -33,7 +33,7 @@ public class MyService extends HttpServer implements Service {
                 case Request.METHOD_GET:
                     final ByteBuffer value = dao.get(key);
                     final ByteBuffer duplicate = value.duplicate();
-                    byte[] body = new byte[duplicate.remaining()];
+                    final byte[] body = new byte[duplicate.remaining()];
                     duplicate.get(body);
                     return new Response(Response.OK, body);
                 case Request.METHOD_PUT:
