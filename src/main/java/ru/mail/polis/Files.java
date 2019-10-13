@@ -84,7 +84,7 @@ public final class Files {
     }
 
     /**
-     * Calculate directory size in bytes
+     * Calculate directory size in bytes.
      *
      * @param path - path
      */

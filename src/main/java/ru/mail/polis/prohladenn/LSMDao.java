@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,7 +35,7 @@ public final class LSMDao implements DAO {
     private Collection<FileTable> fileTables;
     private final MemTablePool memTable;
     private final Thread flushedThread;
-    private long generation;
+    private final long generation;
 
     private final class FlusherThread extends Thread {
 
@@ -87,13 +88,13 @@ public final class LSMDao implements DAO {
         assert flushThreshold >= 0L;
         this.base = base;
         this.fileTables = new ArrayList<>();
-        this.generation = 0;
+        final AtomicLong maxGeneration = new AtomicLong();
         Files.walkFileTree(base.toPath(), EnumSet.of(FileVisitOption.FOLLOW_LINKS), 1, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult visitFile(final Path path, final BasicFileAttributes attrs) {
                 if (!path.getFileName().toString().contains("trash")) {
                     try {
-                        generation = Math.max(generation, getGeneration(path.toFile()));
+                        maxGeneration.set(Math.max(maxGeneration.get(), getGeneration(path.toFile())));
                         fileTables.add(new FileTable(path.toFile()));
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -102,6 +103,7 @@ public final class LSMDao implements DAO {
                 return FileVisitResult.CONTINUE;
             }
         });
+        this.generation = maxGeneration.get();
         this.memTable = new MemTablePool(generation, flushThreshold);
         this.flushedThread = new FlusherThread();
         this.flushedThread.start();
