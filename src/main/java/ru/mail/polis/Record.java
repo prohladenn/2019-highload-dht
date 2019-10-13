@@ -27,7 +27,7 @@ import java.util.Objects;
  *
  * @author Dmitry Schitinin
  */
-public class Record implements Comparable<Record> {
+public final class Record implements Comparable<Record> {
     private final ByteBuffer key;
     private final ByteBuffer value;
 

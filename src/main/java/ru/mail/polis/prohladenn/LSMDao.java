@@ -10,7 +10,11 @@ import ru.mail.polis.dao.DAO;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.*;
+import java.nio.file.FileVisitOption;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.FileVisitResult;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -117,7 +121,7 @@ public final class LSMDao implements DAO {
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         memTable.upsert(key, value);
     }
 
@@ -133,7 +137,7 @@ public final class LSMDao implements DAO {
     }
 
     @Override
-    public void remove(@NotNull final ByteBuffer key) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) {
         memTable.remove(key);
     }
 
@@ -143,7 +147,7 @@ public final class LSMDao implements DAO {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         memTable.close();
         try {
             flushedThread.join();
