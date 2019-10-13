@@ -12,4 +12,11 @@ final class Bytes {
         result.rewind();
         return result;
     }
+
+    static ByteBuffer fromLong(final long value) {
+        final ByteBuffer result = ByteBuffer.allocate(Long.BYTES);
+        result.putLong(value);
+        result.rewind();
+        return result;
+    }
 }

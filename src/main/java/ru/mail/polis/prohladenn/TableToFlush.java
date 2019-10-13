@@ -1,41 +1,47 @@
 package ru.mail.polis.prohladenn;
 
-import org.jetbrains.annotations.NotNull;
+import java.util.Iterator;
 
-class TableToFlush {
-    private final Table table;
-    private final int fileIndex;
+public class TableToFlush {
+    private final long generation;
+    private final Iterator<Cell> cells;
     private final boolean poisonPill;
-    private final boolean compacting;
+    private final boolean isCompacted;
 
-    TableToFlush(@NotNull final Table table, final int fileIndex) {
-        this(table, fileIndex, false);
+    public TableToFlush(final long generation, final Iterator<Cell> cells, final boolean isCompacted) {
+        this(generation, cells, false, isCompacted);
     }
 
-    TableToFlush(@NotNull final Table table, final int fileIndex, final boolean poisonPill) {
-        this(table, fileIndex, poisonPill, false);
-    }
+    /**
+     * Table that need to be flushed.
+     *
+     * @param generation  generation of table
+     * @param cells       data
+     * @param poisonPill  indicator
+     * @param isCompacted if table needs to be compact
+     */
 
-    TableToFlush(@NotNull final Table table, final int fileIndex, final boolean poisonPill, final boolean compacting) {
-        this.table = table;
-        this.fileIndex = fileIndex;
+    public TableToFlush(final long generation, final Iterator<Cell> cells, final boolean poisonPill,
+                        final boolean isCompacted) {
+        this.generation = generation;
+        this.cells = cells;
+        this.isCompacted = isCompacted;
         this.poisonPill = poisonPill;
-        this.compacting = compacting;
     }
 
-    Table getTable() {
-        return table;
+    public long getGeneration() {
+        return generation;
     }
 
-    int getFileIndex() {
-        return fileIndex;
+    public Iterator<Cell> getData() {
+        return cells;
     }
 
-    boolean isPoisonPill() {
+    public boolean isPoisonPill() {
         return poisonPill;
     }
 
-    boolean isCompacting() {
-        return compacting;
+    public boolean isCompacted() {
+        return isCompacted;
     }
 }

@@ -16,13 +16,12 @@
 
 package ru.mail.polis.dao;
 
+import com.google.common.base.Functions;
+import org.jetbrains.annotations.NotNull;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
-
-import org.jetbrains.annotations.NotNull;
-
-import com.google.common.base.Functions;
 
 /**
  * Utility methods for iterators.

@@ -1,4 +1,4 @@
-package ru.mail.polis.prohladenn.service;
+package ru.mail.polis.prohladenn;
 
 import com.google.common.base.Charsets;
 import one.nio.http.*;

@@ -1,92 +1,143 @@
 package ru.mail.polis.prohladenn;
 
+import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.Iters;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 import java.util.NavigableMap;
+import java.util.TreeMap;
+import java.util.ArrayList;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MemTablePool implements Table, Closeable {
+
+    private volatile MemTable currentMemTable;
+    private final NavigableMap<Long, Table> pendingToFlushTables;
+    private long generation;
+    private final long memFlushThreshold;
+    private final BlockingQueue<TableToFlush> flushingQueue;
+
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
-    private final long maxHeap;
-    private final NavigableMap<Integer, Table> tableForFlush;
-    private volatile MemTable current;
-    private final BlockingQueue<TableToFlush> flushQueue;
-    private final AtomicBoolean stop = new AtomicBoolean(false);
-    private final AtomicBoolean compacting = new AtomicBoolean(false);
-    private final AtomicInteger fileIndex;
 
-    MemTablePool(final long maxHeap, @NotNull final AtomicInteger fileIndex) {
-        this.maxHeap = maxHeap;
-        this.current = new MemTable();
-        this.tableForFlush = new ConcurrentSkipListMap<>();
-        this.flushQueue = new ArrayBlockingQueue<>(2);
-        this.fileIndex = fileIndex;
+    private final AtomicBoolean stop = new AtomicBoolean();
+
+    /**
+     * Combined memTables.
+     *
+     * @param startGeneration   generation
+     * @param memFlushThreshold threshold when tables need to be flushed
+     */
+
+    public MemTablePool(final long startGeneration,
+                        final long memFlushThreshold) {
+        this.generation = startGeneration;
+        this.memFlushThreshold = memFlushThreshold;
+        this.currentMemTable = new MemTable(generation);
+        this.pendingToFlushTables = new TreeMap<>();
+        this.flushingQueue = new ArrayBlockingQueue<>(2);
     }
 
-    @NotNull
-    @Override
-    public Iterator<Cell> iterator(@NotNull final ByteBuffer from) throws IOException {
-        lock.readLock().lock();
-        final List<Iterator<Cell>> iteratorList;
-        try {
-            iteratorList = Utils.getListIterators(tableForFlush, current, from);
-        } finally {
-            lock.readLock().unlock();
-        }
-        return Utils.getActualRowIterator(iteratorList);
-    }
-
-    @Override
-    public void upsert(@NotNull final ByteBuffer key,
-                       @NotNull final ByteBuffer value,
-                       @NotNull final AtomicInteger fileIndex) {
-        if (stop.get()) {
-            throw new IllegalStateException("Already stopped");
-        }
-        current.upsert(key, value, fileIndex);
-        enqueueFlush(fileIndex);
-
-    }
-
-    @Override
-    public void remove(@NotNull final ByteBuffer key,
-                       @NotNull final AtomicInteger fileIndex) {
-        if (stop.get()) {
-            throw new IllegalStateException("Already stopped");
-        }
-        current.remove(key, fileIndex);
-        enqueueFlush(fileIndex);
-    }
-
-    @Override
-    public void clear() {
-        throw new UnsupportedOperationException();
-    }
 
     @Override
     public long sizeInBytes() {
         lock.readLock().lock();
         try {
-            long sizeInBytes = 0;
-            sizeInBytes += current.sizeInBytes();
-            for (final Map.Entry<Integer, Table> entry : tableForFlush.entrySet()) {
-                sizeInBytes += entry.getValue().sizeInBytes();
-            }
-            return sizeInBytes;
+            return currentMemTable.sizeInBytes();
         } finally {
             lock.readLock().unlock();
+        }
+    }
+
+    @NotNull
+    @Override
+    public Iterator<Cell> iterator(final @NotNull ByteBuffer from) throws IOException {
+        lock.readLock().lock();
+        final Collection<Iterator<Cell>> iterators;
+        try {
+
+            iterators = new ArrayList<>(pendingToFlushTables.size() + 1);
+            for (final Table table : pendingToFlushTables.descendingMap().values()) {
+                iterators.add(table.iterator(from));
+            }
+            iterators.add(currentMemTable.iterator(from));
+        } finally {
+            lock.readLock().unlock();
+        }
+        final Iterator<Cell> mergeIterator = Iterators.mergeSorted(iterators, Cell.COMPARATOR);
+        return Iters.collapseEquals(mergeIterator, Cell::getKey);
+    }
+
+    private void enqueueFlush() {
+        lock.writeLock().lock();
+        TableToFlush tableToFlush = null;
+        try {
+
+            if (currentMemTable.sizeInBytes() > memFlushThreshold) {
+                tableToFlush = new TableToFlush(generation,
+                        currentMemTable.iterator(LSMDao.EMPTY),
+                        false);
+                pendingToFlushTables.put(generation, currentMemTable);
+                generation = generation + 1;
+                currentMemTable = new MemTable(generation);
+            }
+        } finally {
+            lock.writeLock().unlock();
+        }
+        if (tableToFlush != null) {
+            try {
+                flushingQueue.put(tableToFlush);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    @Override
+    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
+        if (stop.get()) {
+            throw new IllegalStateException("Already stopped!");
+        }
+        currentMemTable.upsert(key, value);
+        enqueueFlush();
+    }
+
+    @Override
+    public void remove(final @NotNull ByteBuffer key) {
+        if (stop.get()) {
+            throw new IllegalStateException("Already stopped!");
+        }
+        currentMemTable.remove(key);
+        enqueueFlush();
+    }
+
+    public TableToFlush takeToFlush() throws InterruptedException {
+        return flushingQueue.take();
+    }
+
+    /**
+     * Removes flushed tables from pendingToFlushTables.
+     *
+     * @param generation generation of tables
+     */
+
+    public void flushed(final long generation) {
+        lock.writeLock().lock();
+        try {
+            pendingToFlushTables.remove(generation);
+        } finally {
+            lock.writeLock().unlock();
         }
     }
 
@@ -96,74 +147,52 @@ public class MemTablePool implements Table, Closeable {
             return;
         }
         lock.writeLock().lock();
-        TableToFlush table;
+        TableToFlush tableToFlush;
         try {
-            table = new TableToFlush(current, fileIndex.get(), true);
+            tableToFlush = new TableToFlush(generation, currentMemTable.iterator(LSMDao.EMPTY), true, false);
         } finally {
             lock.writeLock().unlock();
         }
+
         try {
-            flushQueue.put(table);
+            flushingQueue.put(tableToFlush);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
 
-    void compact() {
-        if (!compacting.compareAndSet(false, true)) {
-            return;
-        }
-        lock.writeLock().lock();
-        TableToFlush table;
+    /**
+     * MemTables compaction.
+     *
+     * @param fileTables collection of fileTables
+     * @param generation generation of fileTables
+     * @param base       directory
+     * @throws IOException if an I/O error occurred
+     */
+
+    public void compact(@NotNull final Collection<FileTable> fileTables,
+                        final long generation,
+                        final File base) throws IOException {
+        lock.readLock().lock();
+        final Iterator<Cell> alive;
         try {
-            table = new TableToFlush(current, fileIndex.getAndAdd(1), true, true);
-            tableForFlush.put(table.getFileIndex(), table.getTable());
-            current = new MemTable();
+            alive = IterUtils.collapse(currentMemTable, fileTables, LSMDao.EMPTY);
         } finally {
-            lock.writeLock().unlock();
+            lock.readLock().unlock();
         }
+        final File tmp = new File(base, generation + LSMDao.TABLE + LSMDao.TEMP);
+        lock.readLock().lock();
+        FileTable.write(alive, tmp);
         try {
-            flushQueue.put(table);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    private void enqueueFlush(@NotNull final AtomicInteger fileIndex) {
-        if (current.sizeInBytes() >= maxHeap) {
-            TableToFlush table = null;
-            int index;
-            lock.writeLock().lock();
-            try {
-                if (current.sizeInBytes() >= maxHeap) {
-                    index = fileIndex.getAndAdd(1);
-                    table = new TableToFlush(current, index);
-                    tableForFlush.put(index, current);
-                    current = new MemTable();
-                }
-            } finally {
-                lock.writeLock().unlock();
+            for (final FileTable fileTable : fileTables) {
+                Files.delete(fileTable.getPath());
             }
-            if (table != null) {
-                try {
-                    flushQueue.put(table);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        }
-    }
-
-    TableToFlush takeToFlush() throws InterruptedException {
-        return flushQueue.take();
-    }
-
-    void flushed(final int generation) {
-        lock.writeLock().lock();
-        try {
-            tableForFlush.remove(generation);
+            fileTables.clear();
+            final File file = new File(base, generation + LSMDao.TABLE + LSMDao.SUFFIX);
+            Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
+            fileTables.add(new FileTable(file));
         } finally {
-            lock.writeLock().unlock();
+            lock.readLock().unlock();
         }
     }
 }
