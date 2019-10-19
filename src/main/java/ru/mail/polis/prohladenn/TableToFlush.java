@@ -20,7 +20,6 @@ public class TableToFlush {
      * @param poisonPill  indicator
      * @param isCompacted if table needs to be compact
      */
-
     public TableToFlush(final long generation, final Iterator<Cell> cells, final boolean poisonPill,
                         final boolean isCompacted) {
         this.generation = generation;

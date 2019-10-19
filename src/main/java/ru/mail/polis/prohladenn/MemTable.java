@@ -20,6 +20,7 @@ public final class MemTable implements Table {
         this.generation.set(generation);
     }
 
+    @Override
     public long sizeInBytes() {
         return sizeInBytes.get();
     }

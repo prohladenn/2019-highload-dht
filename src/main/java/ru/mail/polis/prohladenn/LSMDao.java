@@ -1,5 +1,6 @@
 package ru.mail.polis.prohladenn;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -11,22 +12,23 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.FileVisitResult;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class LSMDao implements DAO {
     public static final ByteBuffer EMPTY = ByteBuffer.allocate(0);
-    public static final String TABLE = "FILE_TABLE ";
+    public static final String TABLE = "FILE_TABLE";
     public static final String SUFFIX = ".db";
     public static final String TEMP = ".tmp";
     private static final Logger log = LoggerFactory.getLogger(ru.mail.polis.prohladenn.LSMDao.class);
@@ -97,16 +99,16 @@ public final class LSMDao implements DAO {
                         maxGeneration.set(Math.max(maxGeneration.get(), getGeneration(path.toFile())));
                         fileTables.add(new FileTable(path.toFile()));
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        log.error(e.getMessage());
                     }
                 }
                 return FileVisitResult.CONTINUE;
             }
         });
-        this.generation = maxGeneration.get();
+        this.generation = maxGeneration.get() + 1;
         this.memTable = new MemTablePool(generation, flushThreshold);
-        this.flushedThread = new FlusherThread();
-        this.flushedThread.start();
+        flushedThread = new FlusherThread();
+        flushedThread.start();
     }
 
     @NotNull
@@ -181,6 +183,5 @@ public final class LSMDao implements DAO {
                 return FileVisitResult.CONTINUE;
             }
         });
-
     }
 }

@@ -1,8 +1,10 @@
 package ru.mail.polis.prohladenn;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.nio.ByteBuffer;
 
-final class Bytes {
+public final class Bytes {
     private Bytes() {
     }
 
@@ -18,5 +20,18 @@ final class Bytes {
         result.putLong(value);
         result.rewind();
         return result;
+    }
+
+    /**
+     * Transforms ByteBuffer to array of bytes.
+     *
+     * @param buffer input byte buffer
+     * @return byte array
+     */
+    public static byte[] toArray(@NotNull final ByteBuffer buffer) {
+        final ByteBuffer duplicate = buffer.duplicate();
+        final byte[] array = new byte[duplicate.remaining()];
+        duplicate.get(array);
+        return array;
     }
 }

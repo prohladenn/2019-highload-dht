@@ -15,14 +15,13 @@ final class IterUtils {
     }
 
     /**
-     * Collapses iterators from sstables and memtable.
+     * Collapses iterators from fileTable and memTable.
      *
      * @param memTable   MemTable
-     * @param fileTables ssTables
+     * @param fileTables FileTable
      * @param from       start position
      * @throws IOException if an I/O error occurred
      */
-
     @NotNull
     public static Iterator<Cell> collapse(@NotNull final Table memTable,
                                           @NotNull final Collection<FileTable> fileTables,

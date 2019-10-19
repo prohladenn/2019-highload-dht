@@ -39,7 +39,6 @@ public class MemTablePool implements Table, Closeable {
      * @param startGeneration   generation
      * @param memFlushThreshold threshold when tables need to be flushed
      */
-
     public MemTablePool(final long startGeneration,
                         final long memFlushThreshold) {
         this.generation = startGeneration;
@@ -131,7 +130,6 @@ public class MemTablePool implements Table, Closeable {
      *
      * @param generation generation of tables
      */
-
     public void flushed(final long generation) {
         lock.writeLock().lock();
         try {
@@ -169,7 +167,6 @@ public class MemTablePool implements Table, Closeable {
      * @param base       directory
      * @throws IOException if an I/O error occurred
      */
-
     public void compact(@NotNull final Collection<FileTable> fileTables,
                         final long generation,
                         final File base) throws IOException {
@@ -181,8 +178,8 @@ public class MemTablePool implements Table, Closeable {
             lock.readLock().unlock();
         }
         final File tmp = new File(base, generation + LSMDao.TABLE + LSMDao.TEMP);
-        lock.readLock().lock();
         FileTable.write(alive, tmp);
+        lock.readLock().lock();
         try {
             for (final FileTable fileTable : fileTables) {
                 Files.delete(fileTable.getPath());
