@@ -1,5 +1,6 @@
 package ru.mail.polis.prohladenn;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -159,8 +160,7 @@ public final class LSMDao implements DAO {
     }
 
     private long getGeneration(final File file) {
-        final String[] str = file.getName().split(TABLE);
-        return Long.parseLong(str[0]);
+        return Long.parseLong(Splitter.onPattern(TABLE).splitToList(file.getName()).get(0));
     }
 
     private void compactDir(final long preGender) throws IOException {
