@@ -1,6 +1,5 @@
 package ru.mail.polis.prohladenn;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -21,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

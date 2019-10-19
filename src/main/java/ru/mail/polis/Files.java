@@ -16,15 +16,18 @@
 
 package ru.mail.polis;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.File;
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.concurrent.atomic.AtomicLong;
+
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility methods for handling files.
@@ -33,6 +36,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class Files {
     private static final String TEMP_PREFIX = "highload-dht";
+
+    private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     private Files() {
         // Don't instantiate
@@ -49,7 +54,7 @@ public final class Files {
                     recursiveDelete(data);
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error("Can't delete temporary directory: {}", data, e);
             }
         }));
         return data;
@@ -57,8 +62,6 @@ public final class Files {
 
     /**
      * Remove entire directory with subdirectories.
-     *
-     * @param path - path
      */
     public static void recursiveDelete(@NotNull final File path) throws IOException {
         java.nio.file.Files.walkFileTree(
@@ -84,9 +87,7 @@ public final class Files {
     }
 
     /**
-     * Calculate directory size in bytes.
-     *
-     * @param path - path
+     * Calculates directory size in bytes.
      */
     public static long directorySize(@NotNull final File path) throws IOException {
         final AtomicLong result = new AtomicLong(0L);
