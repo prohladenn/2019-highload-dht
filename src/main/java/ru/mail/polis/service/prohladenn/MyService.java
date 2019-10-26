@@ -1,13 +1,10 @@
 package ru.mail.polis.service.prohladenn;
 
 import com.google.common.base.Charsets;
-import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
-import one.nio.http.Path;
-import one.nio.http.Response;
-import one.nio.http.Request;
-import one.nio.http.HttpSession;
+import one.nio.http.*;
+import one.nio.net.ConnectionString;
 import one.nio.net.Socket;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -16,7 +13,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Executor;
 
@@ -26,11 +25,17 @@ import ru.mail.polis.service.Service;
 
 public class MyService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(MyService.class);
-
+    @NotNull
     private final DAO dao;
 
     @NotNull
     private final Executor executor;
+
+    @NotNull
+    private final Topology<String> topology;
+
+    @NotNull
+    private final Map<String, HttpClient> pool;
 
     /**
      * Create new instance of Service.
@@ -40,12 +45,26 @@ public class MyService extends HttpServer implements Service {
      * @param executor executor
      */
     public MyService(
-            @NotNull final int port,
+            final int port,
             @NotNull final DAO dao,
-            @NotNull final Executor executor) throws IOException {
+            @NotNull final Executor executor,
+            @NotNull final Topology<String> topology) throws IOException {
         super(from(port));
+
         this.dao = dao;
         this.executor = executor;
+        this.topology = topology;
+
+        // Preallocate a pool
+        this.pool = new HashMap<>();
+        for (final String node : topology.all()) {
+            if (topology.isMe(node)) {
+                continue;
+            }
+
+            assert !pool.containsKey(node);
+            pool.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
+        }
     }
 
     private static HttpServerConfig from(final int port) {
@@ -69,7 +88,6 @@ public class MyService extends HttpServer implements Service {
         return new Response(Response.OK, Response.EMPTY);
     }
 
-
     private Response get(
             @NotNull final String id) throws IOException, NoSuchElementException {
         final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));
@@ -85,14 +103,12 @@ public class MyService extends HttpServer implements Service {
         return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
-
     private Response upsert(
             @NotNull final String id,
             @NotNull final byte[] value) throws IOException {
         dao.upsert(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
         return new Response(Response.CREATED, Response.EMPTY);
     }
-
 
     @Path("/v0/entity")
     private void entity(@NotNull final Request request,
@@ -101,6 +117,12 @@ public class MyService extends HttpServer implements Service {
         if (id == null || id.isEmpty()) {
             sendResponse(session, new Response(Response.BAD_REQUEST,
                     "No id".getBytes(Charset.defaultCharset())));
+            return;
+        }
+        final String primary = topology.primaryFor(ByteBuffer.wrap(
+                id.getBytes(Charsets.UTF_8)));
+        if (!topology.isMe(primary)) {
+            executeAsync(session, () -> proxy(primary, request));
             return;
         }
         switch (request.getMethod()) {
@@ -117,6 +139,15 @@ public class MyService extends HttpServer implements Service {
                 sendResponse(session, new Response(Response.METHOD_NOT_ALLOWED,
                         "Wrong method".getBytes(Charset.defaultCharset())));
                 break;
+        }
+    }
+
+    private Response proxy(final String node, final Request request) throws IOException {
+        assert !topology.isMe(node);
+        try {
+            return pool.get(node).invoke(request);
+        } catch (InterruptedException | PoolException | HttpException e) {
+            throw new IOException("Can't proxy", e);
         }
     }
 
@@ -186,7 +217,11 @@ public class MyService extends HttpServer implements Service {
             try {
                 session.sendResponse(action.act());
             } catch (IOException e) {
-                logger.error("Unable to create response", e);
+                try {
+                    session.sendError(Response.INTERNAL_ERROR, "Error while send response");
+                } catch (IOException ex) {
+                    logger.error("Unable to create response", ex);
+                }
             } catch (NoSuchElementException e) {
                 try {
                     session.sendError(Response.NOT_FOUND, null);

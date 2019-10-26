@@ -25,7 +25,9 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.prohladenn.BasicTopology;
 import ru.mail.polis.service.prohladenn.MyService;
+import ru.mail.polis.service.prohladenn.Topology;
 
 /**
  * Constructs {@link Service} instances.
@@ -59,9 +61,12 @@ public final class ServiceFactory {
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
-        final Executor executor = Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors(),
-                new ThreadFactoryBuilder().setNameFormat("worker").build());
-        return new MyService(port, dao, executor);
+
+        final Topology<String> nodes =
+                new BasicTopology(topology, "http://localhost:" + port);
+        final Executor executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
+                new ThreadFactoryBuilder().setNameFormat(String.format("worker-%d",
+                        Runtime.getRuntime().availableProcessors())).build());
+        return new MyService(port, dao, executor, nodes);
     }
 }
