@@ -48,7 +48,6 @@ public class MemTablePool implements Table, Closeable {
         this.flushingQueue = new ArrayBlockingQueue<>(2);
     }
 
-
     @Override
     public long sizeInBytes() {
         lock.readLock().lock();

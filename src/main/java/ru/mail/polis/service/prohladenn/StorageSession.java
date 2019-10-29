@@ -29,7 +29,6 @@ public final class StorageSession extends HttpSession {
         super(socket, server);
     }
 
-
     void stream(@NotNull final Iterator<Record> records) throws IOException {
         this.records = records;
 
