@@ -124,18 +124,23 @@ public final class LSMDao implements DAO {
         return IterUtils.collapse(memTable, fileTables, from);
     }
 
+    /**
+     * Merged iterator of memTable and fileTables.
+     *
+     * @param from start point
+     * @return merged iterator
+     */
     @NotNull
     public Iterator<Cell> latestIterator(@NotNull final ByteBuffer from) throws IOException {
         final Collection<Iterator<Cell>> iterators =
                 new ArrayList<>(fileTables.size() + 1);
 
         iterators.add(memTable.iterator(from));
-        for (final Table ssTable : fileTables) {
-            iterators.add(ssTable.iterator(from));
+        for (final Table table : fileTables) {
+            iterators.add(table.iterator(from));
         }
-        final Iterator<Cell> cells = Iters.collapseEquals(Iterators
+        return Iters.collapseEquals(Iterators
                 .mergeSorted(iterators, Cell.COMPARATOR), Cell::getKey);
-        return cells;
     }
 
     @Override

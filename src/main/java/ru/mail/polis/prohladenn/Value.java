@@ -25,6 +25,11 @@ public final class Value implements Comparable<Value> {
         return data == null;
     }
 
+    /**
+     * Returns data.
+     *
+     * @return data
+     */
     public ByteBuffer getData() {
         if (data == null) {
             return null;
