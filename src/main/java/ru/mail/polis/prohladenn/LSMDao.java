@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.Iters;
 
 import java.io.File;
 import java.io.IOException;
@@ -119,8 +120,22 @@ public final class LSMDao implements DAO {
     }
 
     @NotNull
-    private Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) throws IOException {
+    public Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) throws IOException {
         return IterUtils.collapse(memTable, fileTables, from);
+    }
+
+    @NotNull
+    public Iterator<Cell> latestIterator(@NotNull final ByteBuffer from) throws IOException {
+        final Collection<Iterator<Cell>> iterators =
+                new ArrayList<>(fileTables.size() + 1);
+
+        iterators.add(memTable.iterator(from));
+        for (final Table ssTable : fileTables) {
+            iterators.add(ssTable.iterator(from));
+        }
+        final Iterator<Cell> cells = Iters.collapseEquals(Iterators
+                .mergeSorted(iterators, Cell.COMPARATOR), Cell::getKey);
+        return cells;
     }
 
     @Override

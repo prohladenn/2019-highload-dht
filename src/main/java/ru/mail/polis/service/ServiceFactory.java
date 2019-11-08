@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
 
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.prohladenn.BasicTopology;
-import ru.mail.polis.service.prohladenn.MyService;
+import ru.mail.polis.service.prohladenn.MyHttpServer;
 import ru.mail.polis.service.prohladenn.Topology;
 
 /**
@@ -67,6 +67,6 @@ public final class ServiceFactory {
         final Executor executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
                 new ThreadFactoryBuilder().setNameFormat(String.format("worker-%d",
                         Runtime.getRuntime().availableProcessors())).build());
-        return new MyService(port, dao, executor, nodes);
+        return new MyHttpServer(port, dao, executor, nodes);
     }
 }

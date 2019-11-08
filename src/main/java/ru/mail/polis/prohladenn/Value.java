@@ -8,7 +8,7 @@ public final class Value implements Comparable<Value> {
     private final long ts;
     private final ByteBuffer data;
 
-    Value(final long ts, final ByteBuffer data) {
+    public Value(final long ts, final ByteBuffer data) {
         this.ts = ts;
         this.data = data;
     }
@@ -17,17 +17,17 @@ public final class Value implements Comparable<Value> {
         return new Value(System.nanoTime(), data.duplicate());
     }
 
-    static Value tombstone() {
+    public static Value tombstone() {
         return new Value(System.nanoTime(), null);
     }
 
-    boolean isRemoved() {
+    public boolean isRemoved() {
         return data == null;
     }
 
-    ByteBuffer getData() {
+    public ByteBuffer getData() {
         if (data == null) {
-            throw new IllegalArgumentException("Cell data is null");
+            return null;
         }
         return data.asReadOnlyBuffer();
     }
@@ -37,7 +37,7 @@ public final class Value implements Comparable<Value> {
         return -Long.compare(ts, o.ts);
     }
 
-    long getTimeStamp() {
+    public long getTimeStamp() {
         return ts;
     }
 }
