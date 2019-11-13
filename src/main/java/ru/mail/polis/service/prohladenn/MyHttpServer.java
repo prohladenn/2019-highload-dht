@@ -36,7 +36,7 @@ public class MyHttpServer extends HttpServer implements Service {
     public static final String TIMESTAMP_HEADER = "X-OK-Timestamp: ";
     public static final String URL = "/v0/entity?id=";
 
-    private static final Logger logger = LoggerFactory.getLogger(HttpServer.class);
+    private static final Logger logger = LoggerFactory.getLogger(MyHttpServer.class);
     @NotNull
     private final LSMDao dao;
 

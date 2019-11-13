@@ -20,7 +20,7 @@ import java.util.NoSuchElementException;
 
 public class HttpServerController {
 
-    private static final Logger logger = LoggerFactory.getLogger(MyHttpServer.class);
+    private static final Logger logger = LoggerFactory.getLogger(HttpServerController.class);
     private final String me;
 
     @NotNull
