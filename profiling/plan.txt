@@ -1,0 +1,17 @@
+1) Sequential start
+wrk2 -t4 -c4 -d60s -R1000 -s put.lua --latency http://localhost:8080
+wrk2 -t4 -c4 -d60s -R1000 -s put.lua --latency http://localhost:8081
+wrk2 -t4 -c4 -d60s -R1000 -s put.lua --latency http://localhost:8082
+wrk2 -t4 -c4 -d60s -R1000 -s get.lua --latency http://localhost:8080
+wrk2 -t4 -c4 -d60s -R1000 -s get.lua --latency http://localhost:8081
+wrk2 -t4 -c4 -d60s -R1000 -s get.lua --latency http://localhost:8082
+
+2) Parallel start get
+wrk2 -t4 -c4 -d60s -R1000 -s get.lua --latency http://localhost:8080
+wrk2 -t4 -c4 -d60s -R1000 -s get.lua --latency http://localhost:8081
+wrk2 -t4 -c4 -d60s -R1000 -s get.lua --latency http://localhost:8082
+
+3) Parallel start put
+wrk2 -t4 -c4 -d60s -R1000 -s put.lua --latency http://localhost:8080
+wrk2 -t4 -c4 -d60s -R1000 -s put.lua --latency http://localhost:8081
+wrk2 -t4 -c4 -d60s -R1000 -s put.lua --latency http://localhost:8082
