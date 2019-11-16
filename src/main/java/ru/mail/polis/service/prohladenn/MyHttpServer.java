@@ -2,14 +2,15 @@ package ru.mail.polis.service.prohladenn;
 
 import com.google.common.base.Charsets;
 import one.nio.http.HttpSession;
-import one.nio.http.HttpServer;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.HttpClient;
+
+import java.net.http.HttpClient;
+
+import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
@@ -33,7 +34,10 @@ import ru.mail.polis.service.Service;
 public class MyHttpServer extends HttpServer implements Service {
 
     public static final String PROXY_HEADER = "X-OK-Proxy: True";
+    public static final String PROXY_HEADER_DEFAULT = "X-OK-Proxy";
+    public static final String PROXY_HEADER_VALUE = "True";
     public static final String TIMESTAMP_HEADER = "X-OK-Timestamp: ";
+    public static final String TIMESTAMP_HEADER_DEFAULT = "X-OK-Proxy";
     public static final String URL = "/v0/entity?id=";
 
     private static final Logger logger = LoggerFactory.getLogger(MyHttpServer.class);
@@ -77,9 +81,9 @@ public class MyHttpServer extends HttpServer implements Service {
                 me = node;
                 continue;
             }
-            pool.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
+            pool.put(node, HttpClient.newBuilder().build());
         }
-        controller = new HttpServerController(me, this.dao, pool, this.replicas);
+        controller = new HttpServerController(me, this.dao, pool, this.replicas, this.executor);
     }
 
     private static HttpServerConfig from(final int port) {

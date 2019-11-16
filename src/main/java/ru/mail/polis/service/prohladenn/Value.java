@@ -6,11 +6,11 @@ import ru.mail.polis.prohladenn.Cell;
 import ru.mail.polis.prohladenn.LSMDao;
 
 import java.io.IOException;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.Iterator;
+import java.util.*;
+
+import static ru.mail.polis.service.prohladenn.MyHttpServer.TIMESTAMP_HEADER_DEFAULT;
 
 public final class Value implements Comparable<Value> {
     private static final Value ABSENT = new Value(-1, null, State.ABSENT);
@@ -50,6 +50,27 @@ public final class Value implements Comparable<Value> {
             throw new IllegalArgumentException("Cell data is null");
         }
         return Arrays.copyOf(data, data.length);
+    }
+
+    public static Value getData(@NotNull final HttpResponse<byte[]> response) {
+        final String timestamp = response
+                .headers()
+                .firstValue(TIMESTAMP_HEADER_DEFAULT.toLowerCase(Locale.ENGLISH))
+                .orElse(null);
+        if (timestamp == null) {
+            return Value.absent();
+        }
+        switch (response.statusCode()) {
+            case 200: {
+                return Value.present(response.body(), Long.parseLong(timestamp));
+            }
+            case 404: {
+                return Value.removed(Long.parseLong(timestamp));
+            }
+            default: {
+                return Value.absent();
+            }
+        }
     }
 
     @Override

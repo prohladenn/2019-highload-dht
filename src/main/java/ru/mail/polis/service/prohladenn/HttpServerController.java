@@ -1,22 +1,27 @@
 package ru.mail.polis.service.prohladenn;
 
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
+import java.net.http.HttpClient;
+
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.prohladenn.LSMDao;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Map;
-import java.util.NoSuchElementException;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class HttpServerController {
 
@@ -32,6 +37,9 @@ public class HttpServerController {
     @NotNull
     private final Topology<String> replicas;
 
+    @NotNull
+    private final Executor executor;
+
     /**
      * Creates instance of HttpServer controller.
      *
@@ -43,11 +51,13 @@ public class HttpServerController {
     public HttpServerController(final String me,
                                 @NotNull final LSMDao dao,
                                 @NotNull final Map<String, HttpClient> pool,
-                                @NotNull final Topology<String> replicas) {
+                                @NotNull final Topology<String> replicas,
+                                @NotNull final Executor executor) {
         this.me = me;
         this.dao = dao;
         this.pool = pool;
         this.replicas = replicas;
+        this.executor = executor;
     }
 
     /**
@@ -97,40 +107,59 @@ public class HttpServerController {
             final boolean isProxy) throws NoSuchElementException {
         if (isProxy) {
             try {
-                return HttpServerController.from(Value.get(id.getBytes(Charset.defaultCharset()), dao), isProxy);
+                return HttpServerController.from(Value.get(id.getBytes(Charset.defaultCharset()), dao), true);
             } catch (IOException e) {
                 return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(Charset.defaultCharset()));
             }
         }
         final String[] nodes = replicas(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), rf.getFrom());
         final Collection<Value> responses = new ArrayList<>(rf.getFrom());
-        int ackCount = 0;
+        final Collection<CompletableFuture<Value>> futures = new ConcurrentLinkedQueue<>();
         for (final String node : nodes) {
             if (this.me.equals(node)) {
-                try {
-                    responses.add(Value.get(id.getBytes(Charset.defaultCharset()), dao));
-                    ackCount++;
-                } catch (IOException e) {
-                    logger.error("Cant get {}", id, e);
-                }
+                futures.add(CompletableFuture.supplyAsync(() ->
+                {
+                    try {
+                        return Value.get(id.getBytes(StandardCharsets.UTF_8), dao);
+                    } catch (IOException e) {
+                        logger.error("Can not get", e);
+                        return null;
+                    }
+                }));
             } else {
-                try {
-                    final Response response =
-                            pool.get(node).get(
-                                    MyHttpServer.URL + id,
-                                    MyHttpServer.PROXY_HEADER
-                            );
-                    ackCount++;
-                    responses.add(Value.from(response));
-                } catch (InterruptedException | PoolException | HttpException | IOException e) {
-                    logger.error("Can't get {} from {}", id, node, e);
-                }
+                final HttpRequest httpRequest = HttpRequest.newBuilder().uri(URI.create(node + MyHttpServer.URL + id))
+                        .setHeader(MyHttpServer.PROXY_HEADER_DEFAULT, MyHttpServer.PROXY_HEADER_VALUE)
+                        .timeout(Duration.ofSeconds(1))
+                        .GET().build();
+                futures.add(pool.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.ofByteArray()).
+                        thenApply(Value::getData));
             }
         }
-        if (ackCount >= rf.getAck()) {
-            return HttpServerController.from(Value.merge(responses), false);
+        AtomicInteger ackCount = new AtomicInteger(0);
+        AtomicInteger ackCountFalse = new AtomicInteger(0);
+        futures.forEach(f -> {
+            if ((rf.getAck() - ackCount.get()) > (rf.getFrom() - ackCountFalse.get() - ackCount.get()))
+                return;
+            try {
+                Value value = f.get();
+                if (value != null) {
+                    responses.add(value);
+                    ackCount.incrementAndGet();
+                } else {
+                    ackCountFalse.incrementAndGet();
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                ackCountFalse.incrementAndGet();
+            }
+        });
+
+        if (ackCount.get() >= rf.getAck()) {
+            final Value value = responses.stream().filter(Cell -> Cell.getState() != Value.State.ABSENT)
+                    .max(Comparator.comparingLong(Value::getTimeStamp)).orElseGet(Value::absent);
+            return from(value, false);
+        } else {
+            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
-        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
     /**
@@ -151,30 +180,44 @@ public class HttpServerController {
             return new Response(Response.ACCEPTED, Response.EMPTY);
         }
         final String[] nodes = replicas(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), rf.getFrom());
-        int ackCount = 0;
+        final Collection<CompletableFuture<Integer>> futures = new ConcurrentLinkedQueue<>();
         for (final String node : nodes) {
             if (this.me.equals(node)) {
-                dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
-                ackCount++;
-            } else {
-                try {
-                    final Response response =
-                            pool.get(node).delete(
-                                    MyHttpServer.URL + id,
-                                    MyHttpServer.PROXY_HEADER
-                            );
-                    if (response.getStatus() == 202) {
-                        ackCount++;
+                final CompletableFuture<Integer> future = CompletableFuture.runAsync(() ->
+                                dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8))),
+                        executor).handle((s, t) -> {
+                    if (t != null) {
+                        return -1;
                     }
-                } catch (InterruptedException | PoolException | HttpException | IOException e) {
-                    logger.error("Can't delete {} from {}", id, node, e);
-                }
+                    return 202;
+                });
+                futures.add(future);
+            } else {
+                final HttpRequest httpRequest = HttpRequest.newBuilder().DELETE()
+                        .uri(URI.create(node + MyHttpServer.URL + id))
+                        .setHeader(MyHttpServer.PROXY_HEADER_DEFAULT, MyHttpServer.PROXY_HEADER_VALUE)
+                        .timeout(Duration.ofSeconds(1))
+                        .build();
+                futures.add(pool.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding()).
+                        handle((a, exp) -> a.statusCode()));
             }
         }
-        if (ackCount >= rf.getAck()) {
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        }
-        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        AtomicInteger ackCount = new AtomicInteger(0);
+        AtomicInteger ackCountElse = new AtomicInteger(0);
+        futures.forEach(f -> {
+            if ((rf.getAck() - ackCount.get()) > (rf.getFrom() - ackCountElse.get() - ackCount.get()))
+                return;
+            try {
+                if (f.get() == 202) {
+                    ackCount.incrementAndGet();
+                } else {
+                    ackCountElse.incrementAndGet();
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                ackCountElse.incrementAndGet();
+            }
+        });
+        return checkAckCount(ackCount.get(), rf, Response.ACCEPTED);
     }
 
     /**
@@ -195,29 +238,55 @@ public class HttpServerController {
             dao.upsert(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
             return new Response(Response.CREATED, Response.EMPTY);
         }
-        final String[] nodes = replicas(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), rf.getFrom());
-        int ackCount = 0;
+        final String[] nodes = replicas(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), replicas.all().size());
+
+        final Collection<CompletableFuture<Integer>> futures = new ConcurrentLinkedQueue<>();
         for (final String node : nodes) {
             if (this.me.equals(node)) {
-                dao.upsert(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
-                ackCount++;
-            } else {
-                try {
-                    final Response response =
-                            pool.get(node).put(
-                                    MyHttpServer.URL + id,
-                                    value, MyHttpServer.PROXY_HEADER
-                            );
-                    if (response.getStatus() == 201) {
-                        ackCount++;
+                final CompletableFuture<Integer> future = CompletableFuture.runAsync(() ->
+                        dao.upsert(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
+                                ByteBuffer.wrap(value)), executor).handle((s, t) -> {
+                    if (t != null) {
+                        return -1;
                     }
-                } catch (InterruptedException | PoolException | HttpException | IOException e) {
-                    logger.error("Can't upsert {}={} to {}", id, value, node, e);
-                }
+                    return 201;
+                });
+                futures.add(future);
+            } else {
+                final HttpRequest httpRequest = HttpRequest.newBuilder()
+                        .uri(URI.create(node + MyHttpServer.URL + id))
+                        .setHeader(MyHttpServer.PROXY_HEADER_DEFAULT, MyHttpServer.PROXY_HEADER_VALUE)
+                        .timeout(Duration.ofSeconds(1))
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
+                        .build();
+                final CompletableFuture<Integer> response =
+                        pool.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding()).
+                                handle((a, exp) -> a.statusCode());
+                futures.add(response);
             }
         }
+        AtomicInteger ackCount = new AtomicInteger(0);
+        AtomicInteger ackCountElse = new AtomicInteger(0);
+        futures.forEach(f -> {
+            if ((rf.getAck() - ackCount.get()) > (rf.getFrom() - ackCountElse.get() - ackCount.get()))
+                return;
+            try {
+                if (f.get() == 201) {
+                    ackCount.incrementAndGet();
+                } else {
+                    ackCountElse.incrementAndGet();
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                ackCountElse.incrementAndGet();
+            }
+        });
+
+        return checkAckCount(ackCount.get(), rf, Response.CREATED);
+    }
+
+    private Response checkAckCount(final int ackCount, final ReplicaFactor rf, final String response) {
         if (ackCount >= rf.getAck()) {
-            return new Response(Response.CREATED, Response.EMPTY);
+            return new Response(response, Response.EMPTY);
         }
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
