@@ -37,7 +37,7 @@ public class MyHttpServer extends HttpServer implements Service {
     public static final String PROXY_HEADER_DEFAULT = "X-OK-Proxy";
     public static final String PROXY_HEADER_VALUE = "True";
     public static final String TIMESTAMP_HEADER = "X-OK-Timestamp: ";
-    public static final String TIMESTAMP_HEADER_DEFAULT = "X-OK-Proxy";
+    public static final String TIMESTAMP_HEADER_DEFAULT = "X-OK-Timestamp";
     public static final String URL = "/v0/entity?id=";
 
     private static final Logger logger = LoggerFactory.getLogger(MyHttpServer.class);
