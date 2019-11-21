@@ -159,11 +159,11 @@ public class HttpServerController {
             }
             try {
                 final Value value = f.get();
-                if (value != null) {
+                if (value == null) {
+                    ackCountElse.incrementAndGet();
+                } else {
                     responses.add(value);
                     ackCount.incrementAndGet();
-                } else {
-                    ackCountElse.incrementAndGet();
                 }
             } catch (InterruptedException | ExecutionException e) {
                 ackCountElse.incrementAndGet();
