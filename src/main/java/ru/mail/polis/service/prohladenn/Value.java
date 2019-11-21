@@ -52,6 +52,12 @@ public final class Value implements Comparable<Value> {
         return Arrays.copyOf(data, data.length);
     }
 
+    /**
+     * Returns data.
+     *
+     * @param response response
+     * @return data
+     */
     public static Value getData(@NotNull final HttpResponse<byte[]> response) {
         final String timestamp = response
                 .headers()
