@@ -132,9 +132,25 @@ public class HttpServerController {
                         .setHeader(MyHttpServer.PROXY_HEADER_DEFAULT, MyHttpServer.PROXY_HEADER_VALUE)
                         .timeout(Duration.ofSeconds(1))
                         .GET().build();
-                futures.add(pool.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.ofByteArray()).thenApply(Value::getData));
+                futures.add(pool.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.ofByteArray())
+                        .thenApply(Value::getData));
             }
         }
+        if (getAckCountForGet(futures, rf, responses) >= rf.getAck()) {
+            final Value value = responses.stream()
+                    .filter(cell -> !cell.getState().equals(Value.State.ABSENT))
+                    .max(Comparator.comparingLong(Value::getTimeStamp))
+                    .orElseGet(Value::absent);
+            return from(value, false);
+        } else {
+            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        }
+    }
+
+    private int getAckCountForGet(
+            final Collection<CompletableFuture<Value>> futures,
+            final ReplicaFactor rf,
+            final Collection<Value> responses) {
         final AtomicInteger ackCount = new AtomicInteger(0);
         final AtomicInteger ackCountElse = new AtomicInteger(0);
         futures.forEach(f -> {
@@ -153,16 +169,7 @@ public class HttpServerController {
                 ackCountElse.incrementAndGet();
             }
         });
-
-        if (ackCount.get() >= rf.getAck()) {
-            final Value value = responses.stream()
-                    .filter(Cell -> !Cell.getState().equals(Value.State.ABSENT))
-                    .max(Comparator.comparingLong(Value::getTimeStamp))
-                    .orElseGet(Value::absent);
-            return from(value, false);
-        } else {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
+        return ackCount.get();
     }
 
     /**
@@ -200,11 +207,11 @@ public class HttpServerController {
                         .setHeader(MyHttpServer.PROXY_HEADER_DEFAULT, MyHttpServer.PROXY_HEADER_VALUE)
                         .timeout(Duration.ofSeconds(1))
                         .build();
-                futures.add(pool.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding()).
-                        handle((a, exp) -> a.statusCode()));
+                futures.add(pool.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
+                        .handle((a, exp) -> a.statusCode()));
             }
         }
-        return checkAckCount(getAckCount(futures, rf, 202).get(), rf, Response.ACCEPTED);
+        return checkAckCount(getAckCount(futures, rf, 202), rf, Response.ACCEPTED);
     }
 
     /**
@@ -246,12 +253,12 @@ public class HttpServerController {
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
                         .build();
                 final CompletableFuture<Integer> response =
-                        pool.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding()).
-                                handle((a, exp) -> a.statusCode());
+                        pool.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
+                                .handle((a, exp) -> a.statusCode());
                 futures.add(response);
             }
         }
-        return checkAckCount(getAckCount(futures, rf, 201).get(), rf, Response.CREATED);
+        return checkAckCount(getAckCount(futures, rf, 201), rf, Response.CREATED);
     }
 
     private Response checkAckCount(final int ackCount, final ReplicaFactor rf, final String response) {
@@ -261,7 +268,7 @@ public class HttpServerController {
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
-    private AtomicInteger getAckCount(
+    private int getAckCount(
             final Collection<CompletableFuture<Integer>> futures,
             final ReplicaFactor rf,
             final int code) {
@@ -281,7 +288,7 @@ public class HttpServerController {
                 ackCountElse.incrementAndGet();
             }
         });
-        return ackCount;
+        return ackCount.get();
     }
 
     private String[] replicas(final ByteBuffer id, final int count) {
