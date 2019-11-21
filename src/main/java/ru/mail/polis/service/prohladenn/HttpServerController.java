@@ -156,7 +156,7 @@ public class HttpServerController {
 
         if (ackCount.get() >= rf.getAck()) {
             final Value value = responses.stream()
-                    .filter(Cell -> Cell.getState() != Value.State.ABSENT)
+                    .filter(Cell -> !Cell.getState().equals(Value.State.ABSENT))
                     .max(Comparator.comparingLong(Value::getTimeStamp))
                     .orElseGet(Value::absent);
             return from(value, false);
@@ -261,7 +261,10 @@ public class HttpServerController {
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
-    private AtomicInteger getAckCount(Collection<CompletableFuture<Integer>> futures, ReplicaFactor rf, int code) {
+    private AtomicInteger getAckCount(
+            final Collection<CompletableFuture<Integer>> futures,
+            final ReplicaFactor rf,
+            final int code) {
         final AtomicInteger ackCount = new AtomicInteger(0);
         final AtomicInteger ackCountElse = new AtomicInteger(0);
         futures.forEach(f -> {
