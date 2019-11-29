@@ -3,6 +3,7 @@ package ru.mail.polis.prohladenn;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 public final class Bytes {
     private Bytes() {
@@ -33,5 +34,9 @@ public final class Bytes {
         final byte[] array = new byte[duplicate.remaining()];
         duplicate.get(array);
         return array;
+    }
+
+    public static ByteBuffer strToBB(final String string) {
+        return ByteBuffer.wrap(string.getBytes(StandardCharsets.UTF_8));
     }
 }

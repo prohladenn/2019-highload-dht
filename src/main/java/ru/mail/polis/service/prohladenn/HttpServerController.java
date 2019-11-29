@@ -4,8 +4,8 @@ import java.net.http.HttpClient;
 
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.prohladenn.Bytes;
 import ru.mail.polis.prohladenn.LSMDao;
-import ru.mail.polis.prohladenn.Utils;
 
 import java.net.URI;
 import java.net.http.HttpRequest;
@@ -13,7 +13,11 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.ByteBuffer;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -103,7 +107,7 @@ public class HttpServerController {
         final Collection<Value> responses = new ArrayList<>(rf.getFrom());
         final Collection<CompletableFuture<Value>> futures = new ConcurrentLinkedQueue<>();
         // Async get
-        replicas(Utils.strToBB(id), rf.getFrom()).forEach(node -> {
+        replicas(Bytes.strToBB(id), rf.getFrom()).forEach(node -> {
             if (this.replicas.isMe(node)) {
                 futures.add(CompletableFuture.supplyAsync(() -> Value.get(id, dao)));
             } else {
@@ -140,16 +144,16 @@ public class HttpServerController {
             final boolean isProxy) {
         // Proxy
         if (isProxy) {
-            dao.remove(Utils.strToBB(id));
+            dao.remove(Bytes.strToBB(id));
             return new Response(Response.ACCEPTED, Response.EMPTY);
         }
         // Initialize
         final Collection<CompletableFuture<Integer>> futures = new ConcurrentLinkedQueue<>();
         // Async delete
-        replicas(Utils.strToBB(id), rf.getFrom()).forEach(node -> {
+        replicas(Bytes.strToBB(id), rf.getFrom()).forEach(node -> {
             if (this.replicas.isMe(node)) {
                 futures.add(CompletableFuture
-                        .runAsync(() -> dao.remove(Utils.strToBB(id)), executor)
+                        .runAsync(() -> dao.remove(Bytes.strToBB(id)), executor)
                         .handle((s, t) -> checkThrowableAndGetCode(202, t)));
             } else {
                 final HttpRequest httpRequest = getHttpRequest(node, id).DELETE().build();
@@ -178,16 +182,16 @@ public class HttpServerController {
             final boolean isProxy) {
         // Proxy
         if (isProxy) {
-            dao.upsert(Utils.strToBB(id), ByteBuffer.wrap(value));
+            dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
             return new Response(Response.CREATED, Response.EMPTY);
         }
         // Initialize
         final Collection<CompletableFuture<Integer>> futures = new ConcurrentLinkedQueue<>();
         // Async upsert
-        replicas(Utils.strToBB(id), rf.getFrom()).forEach(node -> {
+        replicas(Bytes.strToBB(id), rf.getFrom()).forEach(node -> {
             if (this.replicas.isMe(node)) {
                 futures.add(CompletableFuture
-                        .runAsync(() -> dao.upsert(Utils.strToBB(id), ByteBuffer.wrap(value)), executor)
+                        .runAsync(() -> dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value)), executor)
                         .handle((s, t) -> checkThrowableAndGetCode(201, t)));
             } else {
                 futures.add(pool
@@ -270,11 +274,11 @@ public class HttpServerController {
             throw new IllegalArgumentException("Wrong input data");
         }
         int index = this.replicas.indexPrimaryFor(id);
-        final List<String> result = new ArrayList<>(count);
+        final String[] result = new String[count];
         for (int j = 0; j < count; j++) {
-            result.add(j, nodes[index]);
+            result[j] = nodes[index];
             index = (index + 1) % nodes.length;
         }
-        return result;
+        return List.of(result);
     }
 }
