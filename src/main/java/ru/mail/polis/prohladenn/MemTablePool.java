@@ -60,7 +60,7 @@ public class MemTablePool implements Table, Closeable {
 
     @NotNull
     @Override
-    public Iterator<Cell> iterator(final @NotNull ByteBuffer from) throws IOException {
+    public Iterator<Cell> iterator(final @NotNull ByteBuffer from) {
         final Collection<Iterator<Cell>> iterators;
         lock.readLock().lock();
         try {

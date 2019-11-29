@@ -20,12 +20,11 @@ final class IterUtils {
      * @param memTable   MemTable
      * @param fileTables FileTable
      * @param from       start position
-     * @throws IOException if an I/O error occurred
      */
     @NotNull
     public static Iterator<Cell> collapse(@NotNull final Table memTable,
                                           @NotNull final Collection<FileTable> fileTables,
-                                          @NotNull final ByteBuffer from) throws IOException {
+                                          @NotNull final ByteBuffer from) {
         final Collection<Iterator<Cell>> filesIterators = new ArrayList<>();
         for (final FileTable fileTable : fileTables) {
             filesIterators.add(fileTable.iterator(from));

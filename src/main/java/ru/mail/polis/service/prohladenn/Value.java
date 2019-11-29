@@ -8,6 +8,7 @@ import ru.mail.polis.prohladenn.LSMDao;
 import java.io.IOException;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -62,7 +63,7 @@ public final class Value implements Comparable<Value> {
      * @param response response
      * @return data
      */
-    public static Value getData(@NotNull final HttpResponse<byte[]> response) {
+    public static Value getValueFromResponse(@NotNull final HttpResponse<byte[]> response) {
         final String timestamp = response
                 .headers()
                 .firstValue(TIMESTAMP_HEADER_DEFAULT.toLowerCase(Locale.ENGLISH))
@@ -150,15 +151,18 @@ public final class Value implements Comparable<Value> {
         }
     }
 
+    public static Value get(final String key, @NotNull final LSMDao dao) {
+        return get(key.getBytes(StandardCharsets.UTF_8), dao);
+    }
+
     /**
      * Gets value from dao.
      *
      * @param key key
      * @param dao LSMDao
      * @return value from dao
-     * @throws IOException if an I/O error occurred
      */
-    public static Value get(final byte[] key, @NotNull final LSMDao dao) throws IOException {
+    public static Value get(final byte[] key, @NotNull final LSMDao dao) {
         final ByteBuffer k = ByteBuffer.wrap(key);
         final Iterator<Cell> cells = dao.latestIterator(k);
         if (!cells.hasNext()) {

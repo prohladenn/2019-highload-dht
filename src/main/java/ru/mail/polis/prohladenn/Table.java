@@ -10,7 +10,7 @@ public interface Table {
     long sizeInBytes();
 
     @NotNull
-    Iterator<Cell> iterator(@NotNull ByteBuffer from) throws IOException;
+    Iterator<Cell> iterator(@NotNull ByteBuffer from);
 
     void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException;
 

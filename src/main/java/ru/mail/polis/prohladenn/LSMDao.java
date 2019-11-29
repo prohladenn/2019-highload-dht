@@ -113,14 +113,14 @@ public final class LSMDao implements DAO {
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         return Iterators.transform(
                 cellIterator(from),
                 cell -> Record.of(cell.getKey(), cell.getValue().getData()));
     }
 
     @NotNull
-    public Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) throws IOException {
+    public Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) {
         return IterUtils.collapse(memTable, fileTables, from);
     }
 
@@ -131,7 +131,7 @@ public final class LSMDao implements DAO {
      * @return merged iterator
      */
     @NotNull
-    public Iterator<Cell> latestIterator(@NotNull final ByteBuffer from) throws IOException {
+    public Iterator<Cell> latestIterator(@NotNull final ByteBuffer from) {
         final Collection<Iterator<Cell>> iterators =
                 new ArrayList<>(fileTables.size() + 1);
 

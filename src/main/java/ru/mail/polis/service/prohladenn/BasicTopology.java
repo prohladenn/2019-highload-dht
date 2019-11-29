@@ -36,9 +36,12 @@ public class BasicTopology implements Topology<String> {
     @NotNull
     @Override
     public String primaryFor(@NotNull final ByteBuffer key) {
-        final int hash = key.hashCode();
-        final int node = (hash & Integer.MAX_VALUE) % nodes.length;
-        return nodes[node];
+        return nodes[indexPrimaryFor(key)];
+    }
+
+    @Override
+    public int indexPrimaryFor(@NotNull final ByteBuffer key) {
+        return (key.hashCode() & Integer.MAX_VALUE) % nodes.length;
     }
 
     @NotNull

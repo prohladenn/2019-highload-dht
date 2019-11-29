@@ -73,17 +73,12 @@ public class MyHttpServer extends HttpServer implements Service {
         this.executor = executor;
         this.defaultRF = new ReplicaFactor(replicas.all().size() / 2 + 1, replicas.all().size());
         this.replicas = replicas;
-        String me = null;
 
         final Map<String, HttpClient> pool = new HashMap<>();
         for (final String node : this.replicas.all()) {
-            if (replicas.isMe(node)) {
-                me = node;
-                continue;
-            }
             pool.put(node, HttpClient.newBuilder().build());
         }
-        controller = new HttpServerController(me, this.dao, pool, this.replicas, this.executor);
+        controller = new HttpServerController(this.dao, pool, this.replicas, this.executor);
     }
 
     private static HttpServerConfig from(final int port) {
@@ -231,7 +226,7 @@ public class MyHttpServer extends HttpServer implements Service {
 
     @FunctionalInterface
     private interface Action {
-        Response act() throws IOException;
+        Response act();
     }
 
 }

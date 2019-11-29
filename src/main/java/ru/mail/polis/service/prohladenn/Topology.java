@@ -13,6 +13,8 @@ public interface Topology<T> {
     @NotNull
     T primaryFor(@NotNull ByteBuffer key);
 
+    int indexPrimaryFor(@NotNull ByteBuffer key);
+
     @NotNull
     Set<T> all();
 }
