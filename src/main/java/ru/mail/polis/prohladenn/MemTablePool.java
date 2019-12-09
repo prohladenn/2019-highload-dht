@@ -104,12 +104,13 @@ public class MemTablePool implements Table, Closeable {
     }
 
     @Override
-    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
+    public boolean upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         if (stop.get()) {
             throw new IllegalStateException(ALREADY_STOPPED);
         }
-        currentMemTable.upsert(key, value);
+        final boolean isUpdate = currentMemTable.upsert(key, value);
         enqueueFlush();
+        return isUpdate;
     }
 
     @Override

@@ -11,7 +11,14 @@ public interface Table {
     @NotNull
     Iterator<Cell> iterator(@NotNull ByteBuffer from);
 
-    void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value);
+    /**
+     * Upsert or update value by key.
+     *
+     * @param key   key
+     * @param value value
+     * @return if map contains key return true.
+     */
+    boolean upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value);
 
     void timeToLive(@NotNull ByteBuffer key, long ttl);
 
