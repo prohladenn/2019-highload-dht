@@ -34,48 +34,10 @@ public final class LSMDao implements DAO {
     private static final Logger log = LoggerFactory.getLogger(ru.mail.polis.prohladenn.LSMDao.class);
 
     private final File base;
-    private Collection<FileTable> fileTables;
     private final MemTablePool memTable;
     private final Thread flushedThread;
     private final long generation;
-
-    private final class FlusherThread extends Thread {
-
-        public FlusherThread() {
-            super("flusher");
-        }
-
-        @Override
-        public void run() {
-            boolean poisonRecieved = false;
-            while (!Thread.currentThread().isInterrupted() && !poisonRecieved) {
-                TableToFlush toFlush;
-                try {
-                    toFlush = memTable.takeToFlush();
-                    final Iterator<Cell> data = toFlush.getData();
-                    poisonRecieved = toFlush.isPoisonPill();
-                    final boolean isCompactTable = toFlush.isCompacted();
-                    if (isCompactTable || poisonRecieved) {
-                        flush(toFlush.getGeneration(), true, data);
-                    } else {
-                        flush(toFlush.getGeneration(), false, data);
-                    }
-                    if (isCompactTable) {
-                        compactDir(toFlush.getGeneration());
-                    } else {
-                        memTable.flushed(toFlush.getGeneration());
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } catch (IOException e) {
-                    log.info("Error while flush generation :" + e.getMessage());
-                }
-            }
-            if (poisonRecieved) {
-                log.info("Poison pill received. Stop flushing.");
-            }
-        }
-    }
+    private Collection<FileTable> fileTables;
 
     /**
      * Creates persistence LSMDao.
@@ -206,5 +168,43 @@ public final class LSMDao implements DAO {
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    private final class FlusherThread extends Thread {
+
+        public FlusherThread() {
+            super("flusher");
+        }
+
+        @Override
+        public void run() {
+            boolean poisonRecieved = false;
+            while (!Thread.currentThread().isInterrupted() && !poisonRecieved) {
+                TableToFlush toFlush;
+                try {
+                    toFlush = memTable.takeToFlush();
+                    final Iterator<Cell> data = toFlush.getData();
+                    poisonRecieved = toFlush.isPoisonPill();
+                    final boolean isCompactTable = toFlush.isCompacted();
+                    if (isCompactTable || poisonRecieved) {
+                        flush(toFlush.getGeneration(), true, data);
+                    } else {
+                        flush(toFlush.getGeneration(), false, data);
+                    }
+                    if (isCompactTable) {
+                        compactDir(toFlush.getGeneration());
+                    } else {
+                        memTable.flushed(toFlush.getGeneration());
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } catch (IOException e) {
+                    log.info("Error while flush generation :" + e.getMessage());
+                }
+            }
+            if (poisonRecieved) {
+                log.info("Poison pill received. Stop flushing.");
+            }
+        }
     }
 }
