@@ -23,8 +23,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MemTablePool implements Table, Closeable {
 
-    private final static String ALREADY_STOPPED = "Already stopped!";
-
+    private final String ALREADY_STOPPED = "Already stopped!";
     private final NavigableMap<Long, Table> pendingToFlushTables;
     private final long memFlushThreshold;
     private final BlockingQueue<TableToFlush> flushingQueue;
