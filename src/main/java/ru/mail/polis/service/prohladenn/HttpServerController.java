@@ -1,23 +1,20 @@
 package ru.mail.polis.service.prohladenn;
 
-import java.net.http.HttpClient;
-
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.prohladenn.Bytes;
 import ru.mail.polis.prohladenn.LSMDao;
+import ru.mail.polis.service.prohladenn.factors.ReplicaFactor;
+import ru.mail.polis.service.prohladenn.factors.TimeToLiveFactor;
 
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.ByteBuffer;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -179,10 +176,14 @@ public class HttpServerController {
             @NotNull final String id,
             @NotNull final byte[] value,
             @NotNull final ReplicaFactor rf,
+            @NotNull final TimeToLiveFactor ttlf,
             final boolean isProxy) {
         // Proxy
         if (isProxy) {
             dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
+            if (ttlf != TimeToLiveFactor.EMPTY) {
+                dao.remove(Bytes.strToBB(id));
+            }
             return new Response(Response.CREATED, Response.EMPTY);
         }
         // Initialize
@@ -191,7 +192,12 @@ public class HttpServerController {
         replicas(Bytes.strToBB(id), rf.getFrom()).forEach(node -> {
             if (this.replicas.isMe(node)) {
                 futures.add(CompletableFuture
-                        .runAsync(() -> dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value)), executor)
+                        .runAsync(() -> {
+                            dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
+                            if (ttlf != TimeToLiveFactor.EMPTY) {
+                                dao.remove(Bytes.strToBB(id));
+                            }
+                        }, executor)
                         .handle((s, t) -> checkThrowableAndGetCode(201, t)));
             } else {
                 futures.add(pool

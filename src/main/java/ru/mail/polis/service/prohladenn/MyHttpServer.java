@@ -1,35 +1,28 @@
 package ru.mail.polis.service.prohladenn;
 
 import com.google.common.base.Charsets;
-import one.nio.http.HttpSession;
-import one.nio.http.Param;
-import one.nio.http.Path;
-import one.nio.http.Request;
-
-import java.net.http.HttpClient;
-
-import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
-import one.nio.http.Response;
+import one.nio.http.*;
 import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
+import ru.mail.polis.dao.DAO;
+import ru.mail.polis.prohladenn.LSMDao;
+import ru.mail.polis.service.Service;
+import ru.mail.polis.service.prohladenn.factors.ReplicaFactor;
+import ru.mail.polis.service.prohladenn.factors.TimeToLiveFactor;
 
 import java.io.IOException;
+import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.util.Iterator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Executor;
-
-import ru.mail.polis.Record;
-import ru.mail.polis.prohladenn.LSMDao;
-import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.Service;
 
 public class MyHttpServer extends HttpServer implements Service {
 
@@ -92,6 +85,19 @@ public class MyHttpServer extends HttpServer implements Service {
         return config;
     }
 
+    private static void sendResponse(@NotNull final HttpSession session,
+                                     @NotNull final Response response) {
+        try {
+            session.sendResponse(response);
+        } catch (IOException e) {
+            try {
+                session.sendError(Response.INTERNAL_ERROR, "Error while send response");
+            } catch (IOException ex) {
+                logger.error("Error while send error", ex);
+            }
+        }
+    }
+
     @Override
     public HttpSession createSession(@NotNull final Socket socket) {
         return new StorageSession(socket, this);
@@ -113,6 +119,7 @@ public class MyHttpServer extends HttpServer implements Service {
     @Path("/v0/entity")
     public void entity(
             @Param("id") final String id,
+            @Param("ttl") final String ttl,
             @Param("replicas") final String replicas,
             @NotNull final Request request,
             @NotNull final HttpSession session) {
@@ -130,13 +137,14 @@ public class MyHttpServer extends HttpServer implements Service {
             sendResponse(session, new Response(Response.BAD_REQUEST, "Wrong BF".getBytes(Charset.defaultCharset())));
             return;
         }
+        final TimeToLiveFactor ttlf = ttl == null ? TimeToLiveFactor.EMPTY : TimeToLiveFactor.of(ttl);
         final boolean proxied = request.getHeader(PROXY_HEADER) != null;
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 executeAsync(session, () -> controller.get(id, rf, proxied));
                 break;
             case Request.METHOD_PUT:
-                executeAsync(session, () -> controller.upsert(id, request.getBody(), rf, proxied));
+                executeAsync(session, () -> controller.upsert(id, request.getBody(), rf, ttlf, proxied));
                 break;
             case Request.METHOD_DELETE:
                 executeAsync(session, () -> controller.delete(id, rf, proxied));
@@ -187,19 +195,6 @@ public class MyHttpServer extends HttpServer implements Service {
             @NotNull final Request request,
             @NotNull final HttpSession session) {
         sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    private static void sendResponse(@NotNull final HttpSession session,
-                                     @NotNull final Response response) {
-        try {
-            session.sendResponse(response);
-        } catch (IOException e) {
-            try {
-                session.sendError(Response.INTERNAL_ERROR, "Error while send response");
-            } catch (IOException ex) {
-                logger.error("Error while send error", ex);
-            }
-        }
     }
 
     private void executeAsync(

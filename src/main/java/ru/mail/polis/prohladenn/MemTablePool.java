@@ -10,11 +10,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.NavigableMap;
-import java.util.TreeMap;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -23,15 +19,14 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MemTablePool implements Table, Closeable {
 
-    private volatile MemTable currentMemTable;
     private final NavigableMap<Long, Table> pendingToFlushTables;
-    private long generation;
     private final long memFlushThreshold;
     private final BlockingQueue<TableToFlush> flushingQueue;
-
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
-
     private final AtomicBoolean stop = new AtomicBoolean();
+    private volatile MemTable currentMemTable;
+    private volatile MemTable ttlMemTable;
+    private long generation;
 
     /**
      * Combined memTables.
@@ -43,7 +38,8 @@ public class MemTablePool implements Table, Closeable {
                         final long memFlushThreshold) {
         this.generation = startGeneration;
         this.memFlushThreshold = memFlushThreshold;
-        this.currentMemTable = new MemTable(generation);
+        this.currentMemTable = new MemTable(generation++);
+        this.ttlMemTable = new MemTable(generation);
         this.pendingToFlushTables = new TreeMap<>();
         this.flushingQueue = new ArrayBlockingQueue<>(2);
     }
@@ -70,6 +66,7 @@ public class MemTablePool implements Table, Closeable {
                 iterators.add(table.iterator(from));
             }
             iterators.add(currentMemTable.iterator(from));
+            iterators.add(ttlMemTable.iterator(from));
         } finally {
             lock.readLock().unlock();
         }
@@ -81,7 +78,6 @@ public class MemTablePool implements Table, Closeable {
         TableToFlush tableToFlush = null;
         lock.writeLock().lock();
         try {
-
             if (currentMemTable.sizeInBytes() > memFlushThreshold) {
                 tableToFlush = new TableToFlush(generation,
                         currentMemTable.iterator(LSMDao.EMPTY),
@@ -109,6 +105,14 @@ public class MemTablePool implements Table, Closeable {
         }
         currentMemTable.upsert(key, value);
         enqueueFlush();
+    }
+
+    @Override
+    public void timeToLive(@NotNull ByteBuffer key, long ttl) {
+        if (stop.get()) {
+            throw new IllegalStateException("Already stopped!");
+        }
+        ttlMemTable.timeToLive(key, ttl);
     }
 
     @Override
@@ -143,16 +147,18 @@ public class MemTablePool implements Table, Closeable {
         if (!stop.compareAndSet(false, true)) {
             return;
         }
-        TableToFlush tableToFlush;
+        TableToFlush tableToFlush, ttlTableToFlush;
         lock.writeLock().lock();
         try {
             tableToFlush = new TableToFlush(generation, currentMemTable.iterator(LSMDao.EMPTY), true, false);
+            ttlTableToFlush = new TableToFlush(generation, ttlMemTable.iterator(LSMDao.EMPTY), true, false);
         } finally {
             lock.writeLock().unlock();
         }
 
         try {
             flushingQueue.put(tableToFlush);
+            flushingQueue.put(ttlTableToFlush);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

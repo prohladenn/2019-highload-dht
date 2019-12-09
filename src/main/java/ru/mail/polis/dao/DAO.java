@@ -93,6 +93,13 @@ public interface DAO extends Closeable {
             @NotNull ByteBuffer value) throws IOException;
 
     /**
+     * Set time to live by given key.
+     */
+    void timeToLive(
+            @NotNull ByteBuffer key,
+            final long ttl) throws IOException;
+
+    /**
      * Removes value by given key.
      */
     void remove(@NotNull ByteBuffer key) throws IOException;

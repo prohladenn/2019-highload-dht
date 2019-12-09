@@ -1,4 +1,4 @@
-package ru.mail.polis.service.prohladenn;
+package ru.mail.polis.service.prohladenn.factors;
 
 import com.google.common.base.Splitter;
 import org.jetbrains.annotations.NotNull;

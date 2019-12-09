@@ -45,11 +45,6 @@ public final class FileTable implements Table {
         this.cells = cellBuffer.slice();
     }
 
-    @Override
-    public long sizeInBytes() {
-        return sizeInBytes;
-    }
-
     /**
      * Writes MemTable data to disk.
      *
@@ -104,6 +99,11 @@ public final class FileTable implements Table {
             // Cells
             fc.write(Bytes.fromInt(offsets.size()));
         }
+    }
+
+    @Override
+    public long sizeInBytes() {
+        return sizeInBytes;
     }
 
     private ByteBuffer keyAt(final int i) {
@@ -181,6 +181,11 @@ public final class FileTable implements Table {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
+        throw new UnsupportedOperationException("");
+    }
+
+    @Override
+    public void timeToLive(@NotNull ByteBuffer key, long ttl) {
         throw new UnsupportedOperationException("");
     }
 

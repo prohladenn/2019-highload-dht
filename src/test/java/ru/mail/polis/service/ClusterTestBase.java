@@ -89,6 +89,13 @@ abstract class ClusterTestBase extends TestBase {
         return "/v0/entity?id=" + id + "&replicas=" + ack + "/" + from;
     }
 
+    @NotNull
+    private String path(
+            @NotNull final String id,
+            final long ttl) {
+        return "/v0/entity?id=" + id + "&ttl=" + ttl;
+    }
+
     Response get(
             final int node,
             @NotNull final String key) throws Exception {
@@ -122,6 +129,14 @@ abstract class ClusterTestBase extends TestBase {
             @NotNull final String key,
             @NotNull final byte[] data) throws Exception {
         return upsert(node, key, data, 1, 1);
+    }
+
+    Response upsert(
+            final int node,
+            @NotNull final String key,
+            @NotNull final byte[] data,
+            final long ttl) throws Exception {
+        return client(node).put(path(key, ttl), data);
     }
 
     Response upsert(

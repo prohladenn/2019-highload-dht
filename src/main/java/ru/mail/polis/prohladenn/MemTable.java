@@ -29,7 +29,8 @@ public final class MemTable implements Table {
     @Override
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return Iterators.transform(
-                map.tailMap(from).entrySet().iterator(),
+                map.tailMap(from).entrySet().parallelStream()
+                        .filter(e -> e.getValue().getTimeStamp() <= System.currentTimeMillis()).iterator(),
                 e -> new Cell(e.getKey(), e.getValue()));
     }
 
@@ -42,6 +43,14 @@ public final class MemTable implements Table {
             sizeInBytes.addAndGet(value.remaining());
         } else {
             sizeInBytes.addAndGet(value.remaining() - previous.getData().remaining());
+        }
+    }
+
+    @Override
+    public void timeToLive(@NotNull ByteBuffer key, final long ttl) {
+        final Value previous = map.put(key, Value.tombstone(ttl));
+        if (previous == null) {
+            sizeInBytes.addAndGet(key.remaining() + Long.BYTES);
         }
     }
 

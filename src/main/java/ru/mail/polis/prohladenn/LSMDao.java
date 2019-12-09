@@ -148,6 +148,11 @@ public final class LSMDao implements DAO {
         memTable.upsert(key, value);
     }
 
+    @Override
+    public void timeToLive(@NotNull ByteBuffer key, long ttl) {
+        memTable.timeToLive(key, ttl);
+    }
+
     private void flush(final long currentGeneration,
                        final boolean isCompactFlush,
                        @NotNull final Iterator<Cell> iterator) throws IOException {
