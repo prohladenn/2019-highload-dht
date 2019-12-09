@@ -185,7 +185,7 @@ public final class FileTable implements Table {
     }
 
     @Override
-    public void timeToLive(@NotNull ByteBuffer key, long ttl) {
+    public void timeToLive(@NotNull final ByteBuffer key, final long ttl) {
         throw new UnsupportedOperationException("");
     }
 

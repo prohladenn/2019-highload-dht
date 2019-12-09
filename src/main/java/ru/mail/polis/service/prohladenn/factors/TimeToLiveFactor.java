@@ -7,7 +7,7 @@ public class TimeToLiveFactor {
 
     private final long ttl;
 
-    public TimeToLiveFactor(long ttl) {
+    public TimeToLiveFactor(final long ttl) {
         this.ttl = ttl;
     }
 

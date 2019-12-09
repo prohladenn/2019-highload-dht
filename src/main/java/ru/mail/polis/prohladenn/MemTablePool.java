@@ -23,6 +23,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MemTablePool implements Table, Closeable {
 
+    private final static String ALREADY_STOPPED = "Already stopped!";
+
     private final NavigableMap<Long, Table> pendingToFlushTables;
     private final long memFlushThreshold;
     private final BlockingQueue<TableToFlush> flushingQueue;
@@ -105,16 +107,16 @@ public class MemTablePool implements Table, Closeable {
     @Override
     public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         if (stop.get()) {
-            throw new IllegalStateException("Already stopped!");
+            throw new IllegalStateException(ALREADY_STOPPED);
         }
         currentMemTable.upsert(key, value);
         enqueueFlush();
     }
 
     @Override
-    public void timeToLive(@NotNull ByteBuffer key, long ttl) {
+    public void timeToLive(@NotNull final ByteBuffer key, final long ttl) {
         if (stop.get()) {
-            throw new IllegalStateException("Already stopped!");
+            throw new IllegalStateException(ALREADY_STOPPED);
         }
         ttlMemTable.timeToLive(key, ttl);
     }
@@ -122,7 +124,7 @@ public class MemTablePool implements Table, Closeable {
     @Override
     public void remove(final @NotNull ByteBuffer key) {
         if (stop.get()) {
-            throw new IllegalStateException("Already stopped!");
+            throw new IllegalStateException(ALREADY_STOPPED);
         }
         currentMemTable.remove(key);
         enqueueFlush();
@@ -151,7 +153,8 @@ public class MemTablePool implements Table, Closeable {
         if (!stop.compareAndSet(false, true)) {
             return;
         }
-        TableToFlush tableToFlush, ttlTableToFlush;
+        TableToFlush tableToFlush;
+        TableToFlush ttlTableToFlush;
         lock.writeLock().lock();
         try {
             tableToFlush = new TableToFlush(generation, currentMemTable.iterator(LSMDao.EMPTY), true, false);
