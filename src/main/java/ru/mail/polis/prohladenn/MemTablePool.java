@@ -23,7 +23,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MemTablePool implements Table, Closeable {
 
-    private final String alreadyStopped = "Already stopped!";
+    private static final String ALREADY_STOPPED = "Already stopped!";
     private final NavigableMap<Long, Table> pendingToFlushTables;
     private final long memFlushThreshold;
     private final BlockingQueue<TableToFlush> flushingQueue;
@@ -106,7 +106,7 @@ public class MemTablePool implements Table, Closeable {
     @Override
     public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         if (stop.get()) {
-            throw new IllegalStateException(alreadyStopped);
+            throw new IllegalStateException(ALREADY_STOPPED);
         }
         currentMemTable.upsert(key, value);
         enqueueFlush();
@@ -115,7 +115,7 @@ public class MemTablePool implements Table, Closeable {
     @Override
     public void timeToLive(@NotNull final ByteBuffer key, final long ttl) {
         if (stop.get()) {
-            throw new IllegalStateException(alreadyStopped);
+            throw new IllegalStateException(ALREADY_STOPPED);
         }
         ttlMemTable.timeToLive(key, ttl);
     }
@@ -123,7 +123,7 @@ public class MemTablePool implements Table, Closeable {
     @Override
     public void remove(final @NotNull ByteBuffer key) {
         if (stop.get()) {
-            throw new IllegalStateException(alreadyStopped);
+            throw new IllegalStateException(ALREADY_STOPPED);
         }
         currentMemTable.remove(key);
         enqueueFlush();
