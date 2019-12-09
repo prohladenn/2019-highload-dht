@@ -47,7 +47,7 @@ public final class MemTable implements Table {
     }
 
     @Override
-    public void timeToLive(@NotNull ByteBuffer key, final long ttl) {
+    public void timeToLive(@NotNull final ByteBuffer key, final long ttl) {
         final Value previous = map.put(key, Value.tombstone(ttl));
         if (previous == null) {
             sizeInBytes.addAndGet(key.remaining() + Long.BYTES);
