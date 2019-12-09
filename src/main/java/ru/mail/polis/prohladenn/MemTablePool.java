@@ -89,7 +89,8 @@ public class MemTablePool implements Table, Closeable {
                         false);
                 pendingToFlushTables.put(generation, currentMemTable);
                 generation = generation + 1;
-                currentMemTable = new MemTable(generation);
+                currentMemTable = ttlMemTable;
+                ttlMemTable = new MemTable(generation);
             }
         } finally {
             lock.writeLock().unlock();
@@ -109,6 +110,9 @@ public class MemTablePool implements Table, Closeable {
             throw new IllegalStateException(ALREADY_STOPPED);
         }
         final boolean isUpdate = currentMemTable.upsert(key, value);
+        if (isUpdate) {
+            ttlMemTable.upsert(key, value);
+        }
         enqueueFlush();
         return isUpdate;
     }

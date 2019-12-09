@@ -31,8 +31,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.*;
 
 class TimeToLiveTest extends ClusterTestBase {
     private static final long SECOND = 1000L;
@@ -40,7 +39,6 @@ class TimeToLiveTest extends ClusterTestBase {
     private File data0;
     private DAO dao0;
     private Service storage0;
-    private Response response;
 
     @BeforeEach
     void beforeEach() throws Exception {
@@ -69,12 +67,36 @@ class TimeToLiveTest extends ClusterTestBase {
             // Insert
             assertEquals(201, upsert(0, key, value, SECOND).getStatus());
 
+            // Check 1
+            Response response = get(0, key);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
+
+            // Wait
+            testWait(SECOND);
+
+            // Check 2
+            assertEquals(404, get(0, key).getStatus());
+        });
+    }
+
+    @Test
+    void update() {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
+            final String key = randomId();
+            final byte[] value = randomValue();
+
+            // Insert
+            assertEquals(201, upsert(0, key, randomValue(), SECOND).getStatus());
+            assertEquals(201, upsert(0, key, value).getStatus());
+
             // Wait
             testWait(SECOND);
 
             // Check
-            response = get(0, key);
-            assertEquals(404, response.getStatus());
+            final Response response = get(0, key);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
         });
     }
 
@@ -88,12 +110,37 @@ class TimeToLiveTest extends ClusterTestBase {
             assertEquals(201, upsert(0, key, randomValue(), SECOND).getStatus());
             assertEquals(201, upsert(0, key, value, SECOND).getStatus());
 
+            // Check 1
+            Response response = get(0, key);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
+
             // Wait
             testWait(SECOND);
 
-            // Check
-            response = get(0, key);
-            assertEquals(404, response.getStatus());
+            // Check 2
+            assertEquals(404, get(0, key).getStatus());
+        });
+    }
+
+    @Test
+    void remove() {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
+            final String key = randomId();
+            final byte[] value = randomValue();
+
+            // Insert
+            assertEquals(201, upsert(0, key, randomValue(), SECOND).getStatus());
+            assertEquals(202, delete(0, key).getStatus());
+
+            // Check 1
+            assertEquals(404, get(0, key).getStatus());
+
+            // Wait
+            testWait(SECOND);
+
+            // Check 2
+            assertEquals(404, get(0, key).getStatus());
         });
     }
 

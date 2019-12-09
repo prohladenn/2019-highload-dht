@@ -186,7 +186,7 @@ public class HttpServerController {
         if (isProxy) {
             dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
             if (ttlf != TimeToLiveFactor.EMPTY) {
-                dao.remove(Bytes.strToBB(id));
+                dao.timeToLive(Bytes.strToBB(id), ttlf.getTtl());
             }
             return new Response(Response.CREATED, Response.EMPTY);
         }
@@ -199,7 +199,7 @@ public class HttpServerController {
                         .runAsync(() -> {
                             dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
                             if (ttlf != TimeToLiveFactor.EMPTY) {
-                                dao.remove(Bytes.strToBB(id));
+                                dao.timeToLive(Bytes.strToBB(id), ttlf.getTtl());
                             }
                         }, executor)
                         .handle((s, t) -> checkThrowableAndGetCode(201, t)));

@@ -32,6 +32,25 @@ public class TimeToLiveTest extends TestBase {
     }
 
     @Test
+    void update(@TempDir File data) throws IOException {
+        final ByteBuffer key = randomKeyBuffer();
+        final ByteBuffer value1 = randomValueBuffer();
+        final ByteBuffer value2 = randomValueBuffer();
+        try (DAO dao = DAOFactory.create(data)) {
+            dao.upsert(key, value1);
+            dao.timeToLive(key, SECOND);
+            assertEquals(value1, dao.get(key));
+            assertEquals(value1, dao.get(key.duplicate()));
+            dao.upsert(key, value2);
+            assertEquals(value2, dao.get(key));
+            assertEquals(value2, dao.get(key.duplicate()));
+            testWait(SECOND);
+            assertEquals(value2, dao.get(key));
+            assertEquals(value2, dao.get(key.duplicate()));
+        }
+    }
+
+    @Test
     void emptyValue(@TempDir File data) throws IOException {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = ByteBuffer.allocate(0);
