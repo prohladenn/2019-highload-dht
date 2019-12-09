@@ -35,14 +35,17 @@ public final class MemTable implements Table {
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
+    public boolean upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         final Value previous = map.put(key, Value.of(value));
         if (previous == null) {
             sizeInBytes.addAndGet(key.remaining() + value.remaining());
+            return false;
         } else if (previous.isRemoved()) {
             sizeInBytes.addAndGet(value.remaining());
+            return false;
         } else {
             sizeInBytes.addAndGet(value.remaining() - previous.getData().remaining());
+            return true;
         }
     }
 
