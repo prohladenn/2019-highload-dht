@@ -5,6 +5,8 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.ByteBuffer;
 
 public final class Value implements Comparable<Value> {
+    private static final long milliToNano = 1000000;
+
     private final long ts;
     private final ByteBuffer data;
 
@@ -14,16 +16,16 @@ public final class Value implements Comparable<Value> {
     }
 
     public static Value of(final ByteBuffer data) {
-        return new Value(System.currentTimeMillis(), data.duplicate());
+        return new Value(System.nanoTime(), data.duplicate());
     }
 
     public static Value tombstone(final long ttl) {
-        final long now = System.currentTimeMillis();
-        return new Value(now + ttl, null);
+        final long now = System.nanoTime();
+        return new Value(now + ttl * milliToNano, null);
     }
 
     public static Value tombstone() {
-        return new Value(System.currentTimeMillis(), null);
+        return new Value(System.nanoTime(), null);
     }
 
     public boolean isRemoved() {

@@ -30,7 +30,7 @@ public final class MemTable implements Table {
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return Iterators.transform(
                 map.tailMap(from).entrySet().parallelStream()
-                        .filter(e -> e.getValue().getTimeStamp() <= System.currentTimeMillis()).iterator(),
+                        .filter(e -> e.getValue().getTimeStamp() <= System.nanoTime()).iterator(),
                 e -> new Cell(e.getKey(), e.getValue()));
     }
 
