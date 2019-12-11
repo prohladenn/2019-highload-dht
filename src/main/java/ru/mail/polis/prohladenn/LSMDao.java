@@ -12,11 +12,7 @@ import ru.mail.polis.dao.Iters;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.FileVisitOption;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -112,7 +108,7 @@ public final class LSMDao implements DAO {
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value, @NotNull Duration ttl) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value, @NotNull final Duration ttl) {
         memTable.upsert(key, value, ttl);
     }
 

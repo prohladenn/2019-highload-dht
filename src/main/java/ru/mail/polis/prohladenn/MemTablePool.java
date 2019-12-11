@@ -11,11 +11,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.NavigableMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -106,7 +102,7 @@ public class MemTablePool implements Table, Closeable {
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         if (stop.get()) {
             throw new IllegalStateException(ALREADY_STOPPED);
         }
@@ -119,7 +115,7 @@ public class MemTablePool implements Table, Closeable {
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value, @NotNull Duration ttl) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value, @NotNull final Duration ttl) {
         if (stop.get()) {
             throw new IllegalStateException(ALREADY_STOPPED);
         }
@@ -129,7 +125,7 @@ public class MemTablePool implements Table, Closeable {
     }
 
     @Override
-    public boolean contains(@NotNull ByteBuffer key) {
+    public boolean contains(@NotNull final ByteBuffer key) {
         if (stop.get()) {
             throw new IllegalStateException(ALREADY_STOPPED);
         }
@@ -137,7 +133,7 @@ public class MemTablePool implements Table, Closeable {
     }
 
     @Override
-    public void remove(final @NotNull ByteBuffer key) {
+    public void remove(@NotNull final ByteBuffer key) {
         if (stop.get()) {
             throw new IllegalStateException(ALREADY_STOPPED);
         }

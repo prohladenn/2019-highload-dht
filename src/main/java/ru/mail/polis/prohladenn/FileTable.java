@@ -181,17 +181,17 @@ public final class FileTable implements Table {
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         throw new UnsupportedOperationException("");
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value, @NotNull Duration ttl) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value, @NotNull final Duration ttl) {
         throw new UnsupportedOperationException("");
     }
 
     @Override
-    public boolean contains(@NotNull ByteBuffer key) {
+    public boolean contains(@NotNull final ByteBuffer key) {
         throw new UnsupportedOperationException("");
     }
 

@@ -14,11 +14,7 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.ByteBuffer;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -184,10 +180,10 @@ public class HttpServerController {
             final boolean isProxy) {
         // Proxy
         if (isProxy) {
-            if (ttl != TimeToLive.EMPTY) {
-                dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value), Duration.ofMillis(ttl.getTtl()));
-            } else {
+            if (ttl == TimeToLive.EMPTY) {
                 dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
+            } else {
+                dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value), Duration.ofMillis(ttl.getTtl()));
             }
             return new Response(Response.CREATED, Response.EMPTY);
         }
@@ -198,10 +194,10 @@ public class HttpServerController {
             if (this.replicas.isMe(node)) {
                 futures.add(CompletableFuture
                         .runAsync(() -> {
-                            if (ttl != TimeToLive.EMPTY) {
-                                dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value), Duration.ofMillis(ttl.getTtl()));
-                            } else {
+                            if (ttl == TimeToLive.EMPTY) {
                                 dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
+                            } else {
+                                dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value), Duration.ofMillis(ttl.getTtl()));
                             }
                         }, executor)
                         .handle((s, t) -> checkThrowableAndGetCode(201, t)));

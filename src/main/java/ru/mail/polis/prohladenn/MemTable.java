@@ -42,12 +42,12 @@ public final class MemTable implements Table {
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value, @NotNull Duration ttl) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value, @NotNull final Duration ttl) {
         final Value previous = map.put(key, Value.tombstone(ttl.toMillis()));
         upsert(key, value, previous);
     }
 
-    private void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value, Value previous) {
+    private void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value, final Value previous) {
         if (previous == null) {
             sizeInBytes.addAndGet(key.remaining() + value.remaining());
         } else if (previous.isRemoved()) {
@@ -58,7 +58,7 @@ public final class MemTable implements Table {
     }
 
     @Override
-    public boolean contains(@NotNull ByteBuffer key) {
+    public boolean contains(@NotNull final ByteBuffer key) {
         return map.containsKey(key);
     }
 
