@@ -18,7 +18,7 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.prohladenn.LSMDao;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.prohladenn.factors.ReplicaFactor;
-import ru.mail.polis.service.prohladenn.factors.TimeToLiveFactor;
+import ru.mail.polis.service.prohladenn.factors.TimeToLive;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
@@ -143,7 +143,7 @@ public class MyHttpServer extends HttpServer implements Service {
             sendResponse(session, new Response(Response.BAD_REQUEST, "Wrong BF".getBytes(Charset.defaultCharset())));
             return;
         }
-        final TimeToLiveFactor ttlf = ttl == null ? TimeToLiveFactor.EMPTY : TimeToLiveFactor.of(ttl);
+        final TimeToLive ttlf = ttl == null ? TimeToLive.EMPTY : TimeToLive.of(ttl);
         final boolean proxied = request.getHeader(PROXY_HEADER) != null;
         switch (request.getMethod()) {
             case Request.METHOD_GET:

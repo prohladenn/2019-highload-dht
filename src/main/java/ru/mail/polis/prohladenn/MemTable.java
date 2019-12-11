@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -29,32 +30,36 @@ public final class MemTable implements Table {
     @Override
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return Iterators.transform(
-                map.tailMap(from).entrySet().parallelStream()
+                map.tailMap(from).entrySet().stream()
                         .filter(e -> e.getValue().getTimeStamp() <= System.nanoTime()).iterator(),
                 e -> new Cell(e.getKey(), e.getValue()));
     }
 
     @Override
-    public boolean upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         final Value previous = map.put(key, Value.of(value));
+        upsert(key, value, previous);
+    }
+
+    @Override
+    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value, @NotNull Duration ttl) {
+        final Value previous = map.put(key, Value.tombstone(ttl.toMillis()));
+        upsert(key, value, previous);
+    }
+
+    private void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value, Value previous) {
         if (previous == null) {
             sizeInBytes.addAndGet(key.remaining() + value.remaining());
-            return false;
         } else if (previous.isRemoved()) {
             sizeInBytes.addAndGet(value.remaining());
-            return false;
         } else {
             sizeInBytes.addAndGet(value.remaining() - previous.getData().remaining());
-            return true;
         }
     }
 
     @Override
-    public void timeToLive(@NotNull final ByteBuffer key, final long ttl) {
-        final Value previous = map.put(key, Value.tombstone(ttl));
-        if (previous == null) {
-            sizeInBytes.addAndGet(key.remaining() + Long.BYTES);
-        }
+    public boolean contains(@NotNull ByteBuffer key) {
+        return map.containsKey(key);
     }
 
     @Override

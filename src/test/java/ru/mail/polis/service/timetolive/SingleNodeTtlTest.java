@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package ru.mail.polis.service;
+package ru.mail.polis.service.timetolive;
 
 import one.nio.http.Response;
 import org.junit.jupiter.api.AfterEach;
@@ -23,6 +23,9 @@ import org.junit.jupiter.api.Test;
 import ru.mail.polis.Files;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.DAOFactory;
+import ru.mail.polis.service.ClusterTestBase;
+import ru.mail.polis.service.Service;
+import ru.mail.polis.service.ServiceFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,7 +36,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class TimeToLiveTest extends ClusterTestBase {
+class SingleNodeTtlTest extends ClusterTestBase {
     private static final long SECOND = 1000L;
     private static final Duration TIMEOUT = Duration.ofMinutes(1);
     private File data0;
@@ -67,10 +70,8 @@ class TimeToLiveTest extends ClusterTestBase {
             // Insert
             assertEquals(201, upsert(0, key, value, SECOND).getStatus());
 
-            // Check 1
-            Response response = get(0, key);
-            assertEquals(200, response.getStatus());
-            assertArrayEquals(value, response.getBody());
+            // Check
+            checkResponseIs200AndValue(key, value);
 
             // Wait
             testWait(SECOND);
@@ -84,19 +85,26 @@ class TimeToLiveTest extends ClusterTestBase {
     void update() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
-            final byte[] value = randomValue();
+            final byte[] value1 = randomValue();
+            final byte[] value2 = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, randomValue(), SECOND).getStatus());
-            assertEquals(201, upsert(0, key, value).getStatus());
+            assertEquals(201, upsert(0, key, value1, SECOND).getStatus());
+
+            // Check
+            checkResponseIs200AndValue(key, value1);
+
+            // Update
+            assertEquals(201, upsert(0, key, value2).getStatus());
+
+            // Check
+            checkResponseIs200AndValue(key, value2);
 
             // Wait
             testWait(SECOND);
 
             // Check
-            final Response response = get(0, key);
-            assertEquals(200, response.getStatus());
-            assertArrayEquals(value, response.getBody());
+            checkResponseIs200AndValue(key, value2);
         });
     }
 
@@ -104,16 +112,20 @@ class TimeToLiveTest extends ClusterTestBase {
     void rewrite() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
-            final byte[] value = randomValue();
+            final byte[] value1 = randomValue();
+            final byte[] value2 = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, randomValue(), SECOND).getStatus());
-            assertEquals(201, upsert(0, key, value, SECOND).getStatus());
+            assertEquals(201, upsert(0, key, value1, SECOND).getStatus());
 
-            // Check 1
-            Response response = get(0, key);
-            assertEquals(200, response.getStatus());
-            assertArrayEquals(value, response.getBody());
+            // Check
+            checkResponseIs200AndValue(key, value1);
+
+            // Rewrite
+            assertEquals(201, upsert(0, key, value2, SECOND).getStatus());
+
+            // Check
+            checkResponseIs200AndValue(key, value2);
 
             // Wait
             testWait(SECOND);
@@ -130,10 +142,15 @@ class TimeToLiveTest extends ClusterTestBase {
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, randomValue(), SECOND).getStatus());
+            assertEquals(201, upsert(0, key, value, SECOND).getStatus());
+
+            // Check
+            checkResponseIs200AndValue(key, value);
+
+            // Remove
             assertEquals(202, delete(0, key).getStatus());
 
-            // Check 1
+            // Check
             assertEquals(404, get(0, key).getStatus());
 
             // Wait
@@ -142,6 +159,12 @@ class TimeToLiveTest extends ClusterTestBase {
             // Check 2
             assertEquals(404, get(0, key).getStatus());
         });
+    }
+
+    private void checkResponseIs200AndValue(String key, byte[] value) throws Exception {
+        final Response response = get(0, key);
+        assertEquals(200, response.getStatus());
+        assertArrayEquals(value, response.getBody());
     }
 
     private void testWait(final long millis) {

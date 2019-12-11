@@ -34,10 +34,10 @@ import java.util.concurrent.TimeUnit;
  *
  * @author Vadim Tsesko
  */
-abstract class ClusterTestBase extends TestBase {
+abstract public class ClusterTestBase extends TestBase {
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
     private final Map<String, HttpClient> hostToClient = new HashMap<>();
-    Set<String> endpoints;
+    public Set<String> endpoints;
 
     @NotNull
     private HttpClient client(final int node) {
@@ -55,14 +55,14 @@ abstract class ClusterTestBase extends TestBase {
         }
     }
 
-    void stop(
+    public void stop(
             final int node,
             @NotNull final Service service) {
         resetClient(node);
         service.stop();
     }
 
-    void start(
+    public void start(
             final int node,
             @NotNull final Service service) {
         service.start();
@@ -96,13 +96,13 @@ abstract class ClusterTestBase extends TestBase {
         return "/v0/entity?id=" + id + "&ttl=" + ttl;
     }
 
-    Response get(
+    public Response get(
             final int node,
             @NotNull final String key) throws Exception {
         return get(node, key, 1, 1);
     }
 
-    Response get(
+    public Response get(
             final int node,
             @NotNull final String key,
             final int ack,
@@ -110,13 +110,13 @@ abstract class ClusterTestBase extends TestBase {
         return client(node).get(path(key, ack, from));
     }
 
-    Response delete(
+    public Response delete(
             final int node,
             @NotNull final String key) throws Exception {
         return delete(node, key, 1, 1);
     }
 
-    Response delete(
+    public Response delete(
             final int node,
             @NotNull final String key,
             final int ack,
@@ -124,14 +124,14 @@ abstract class ClusterTestBase extends TestBase {
         return client(node).delete(path(key, ack, from));
     }
 
-    Response upsert(
+    public Response upsert(
             final int node,
             @NotNull final String key,
             @NotNull final byte[] data) throws Exception {
         return upsert(node, key, data, 1, 1);
     }
 
-    Response upsert(
+    public Response upsert(
             final int node,
             @NotNull final String key,
             @NotNull final byte[] data,
@@ -139,7 +139,7 @@ abstract class ClusterTestBase extends TestBase {
         return client(node).put(path(key, ttl), data);
     }
 
-    Response upsert(
+    public Response upsert(
             final int node,
             @NotNull final String key,
             @NotNull final byte[] data,

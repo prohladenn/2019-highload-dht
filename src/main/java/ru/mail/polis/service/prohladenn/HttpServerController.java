@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.prohladenn.Bytes;
 import ru.mail.polis.prohladenn.LSMDao;
 import ru.mail.polis.service.prohladenn.factors.ReplicaFactor;
-import ru.mail.polis.service.prohladenn.factors.TimeToLiveFactor;
+import ru.mail.polis.service.prohladenn.factors.TimeToLive;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -180,13 +180,14 @@ public class HttpServerController {
             @NotNull final String id,
             @NotNull final byte[] value,
             @NotNull final ReplicaFactor rf,
-            @NotNull final TimeToLiveFactor ttlf,
+            @NotNull final TimeToLive ttl,
             final boolean isProxy) {
         // Proxy
         if (isProxy) {
-            dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
-            if (ttlf != TimeToLiveFactor.EMPTY) {
-                dao.timeToLive(Bytes.strToBB(id), ttlf.getTtl());
+            if (ttl != TimeToLive.EMPTY) {
+                dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value), Duration.ofMillis(ttl.getTtl()));
+            } else {
+                dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
             }
             return new Response(Response.CREATED, Response.EMPTY);
         }
@@ -197,9 +198,10 @@ public class HttpServerController {
             if (this.replicas.isMe(node)) {
                 futures.add(CompletableFuture
                         .runAsync(() -> {
-                            dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
-                            if (ttlf != TimeToLiveFactor.EMPTY) {
-                                dao.timeToLive(Bytes.strToBB(id), ttlf.getTtl());
+                            if (ttl != TimeToLive.EMPTY) {
+                                dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value), Duration.ofMillis(ttl.getTtl()));
+                            } else {
+                                dao.upsert(Bytes.strToBB(id), ByteBuffer.wrap(value));
                             }
                         }, executor)
                         .handle((s, t) -> checkThrowableAndGetCode(201, t)));

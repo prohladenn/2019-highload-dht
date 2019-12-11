@@ -10,6 +10,7 @@ import java.nio.IntBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -180,12 +181,17 @@ public final class FileTable implements Table {
     }
 
     @Override
-    public boolean upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
+    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
         throw new UnsupportedOperationException("");
     }
 
     @Override
-    public void timeToLive(@NotNull final ByteBuffer key, final long ttl) {
+    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value, @NotNull Duration ttl) {
+        throw new UnsupportedOperationException("");
+    }
+
+    @Override
+    public boolean contains(@NotNull ByteBuffer key) {
         throw new UnsupportedOperationException("");
     }
 

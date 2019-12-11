@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -111,8 +112,8 @@ public final class LSMDao implements DAO {
     }
 
     @Override
-    public void timeToLive(@NotNull final ByteBuffer key, final long ttl) {
-        memTable.timeToLive(key, ttl);
+    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value, @NotNull Duration ttl) {
+        memTable.upsert(key, value, ttl);
     }
 
     private void flush(final long currentGeneration,

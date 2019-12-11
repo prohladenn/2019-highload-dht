@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -105,24 +106,34 @@ public class MemTablePool implements Table, Closeable {
     }
 
     @Override
-    public boolean upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
+    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
         if (stop.get()) {
             throw new IllegalStateException(ALREADY_STOPPED);
         }
-        final boolean isUpdate = currentMemTable.upsert(key, value);
-        if (isUpdate) {
+        if (currentMemTable.contains(key)) {
             ttlMemTable.upsert(key, value);
+        } else {
+            currentMemTable.upsert(key, value);
         }
         enqueueFlush();
-        return isUpdate;
     }
 
     @Override
-    public void timeToLive(@NotNull final ByteBuffer key, final long ttl) {
+    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value, @NotNull Duration ttl) {
         if (stop.get()) {
             throw new IllegalStateException(ALREADY_STOPPED);
         }
-        ttlMemTable.timeToLive(key, ttl);
+        currentMemTable.upsert(key, value);
+        ttlMemTable.upsert(key, value, ttl);
+        enqueueFlush();
+    }
+
+    @Override
+    public boolean contains(@NotNull ByteBuffer key) {
+        if (stop.get()) {
+            throw new IllegalStateException(ALREADY_STOPPED);
+        }
+        return ttlMemTable.contains(key) || currentMemTable.contains(key);
     }
 
     @Override

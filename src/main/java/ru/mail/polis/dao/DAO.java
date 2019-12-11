@@ -23,6 +23,7 @@ import ru.mail.polis.Record;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -93,11 +94,12 @@ public interface DAO extends Closeable {
             @NotNull ByteBuffer value) throws IOException;
 
     /**
-     * Set time to live by given key.
+     * Inserts or updates value by given key with time to live.
      */
-    void timeToLive(
+    void upsert(
             @NotNull ByteBuffer key,
-            final long ttl) throws IOException;
+            @NotNull ByteBuffer value,
+            @NotNull Duration ttl) throws IOException;
 
     /**
      * Removes value by given key.
